@@ -32,22 +32,16 @@ struct DecisionResult {
           approved(true) {}
 };
 
-/**
- * @brief Autonomous Multi-Stage Decision Tree for Mars Rover Mission Planning.
- * Evaluates whether to commit to travel, dig, skip, or abort for each candidate target.
- */
+// decision tree to evaluate whether to commit, skip, or drill at a site
 class RoverDecisionTree {
 private:
-    float safetyReserveBattery; // Emergency reserve threshold (Wh)
-    float maxPermissibleSlope;  // Rover incline rollover limit (degrees)
+    float safetyReserveBattery;
+    float maxPermissibleSlope;
 
 public:
     RoverDecisionTree(float safetyReserve = 25.0f, float maxSlope = 38.0f)
         : safetyReserveBattery(safetyReserve), maxPermissibleSlope(maxSlope) {}
 
-    /**
-     * @brief Pre-trip evaluation: Decision Tree checks Travel / Skip / Abort conditions.
-     */
     DecisionResult evaluateSiteCommitment(
         float currentBattery,
         float estimatedTripCost,
@@ -57,7 +51,7 @@ public:
     ) {
         DecisionResult res;
 
-        // Level 1: Battery Energy Feasibility Branch
+        // check if enough battery remains
         float totalNeeded = estimatedTripCost + targetSite.excavationEnergy + safetyReserveBattery;
         if (currentBattery < totalNeeded) {
             if (currentBattery < safetyReserveBattery + 10.0f) {
@@ -78,7 +72,7 @@ public:
             }
         }
 
-        // Level 2: Terrain Hazard & Proximity Branch
+        // check terrain hazards and nearby obstacles
         int nearestObstacleDist = spatialTree.findDistanceToNearestObstacle(targetSite.coord, 4.0f);
         float actualSlope = terrain.getSlope(targetSite.coord.getRow(), targetSite.coord.getColumn());
         if (targetSite.slope > maxPermissibleSlope || actualSlope > maxPermissibleSlope || nearestObstacleDist <= 0) {
@@ -90,7 +84,7 @@ public:
             return res;
         }
 
-        // Level 3: Scientific Value Return vs Cost Efficiency Branch
+        // check science return ratio
         float efficiency = targetSite.scienceValue / (estimatedTripCost + targetSite.excavationEnergy + 0.1f);
         if (efficiency < 0.15f) {
             res.outcome = DecisionOutcome::SKIP_LOW_SCIENCE_RETURN;
@@ -101,7 +95,7 @@ public:
             return res;
         }
 
-        // Approved
+        // all checks passed
         res.outcome = DecisionOutcome::PROCEED_TO_SITE;
         res.decisionTitle = "COMMIT & TRAVEL";
         res.rationale = "Site " + targetSite.name + " approved for travel and science extraction";
@@ -110,9 +104,7 @@ public:
         return res;
     }
 
-    /**
-     * @brief On-site evaluation: Determines drilling strategy (Deep Core, Shallow Trench, Spectral Only).
-     */
+    // select drilling technique based on local conditions
     DecisionResult evaluateExcavationStrategy(
         float currentBattery,
         const SiteData& site,

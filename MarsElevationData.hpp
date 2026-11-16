@@ -2,51 +2,37 @@
 #define MARS_ELEVATION_DATA_HPP
 
 #include "Types.hpp"
-#include <vector>
-#include <cmath>
 #include <iostream>
-#include <iomanip>
 
-/**
- * @brief Manages real Martian elevation data tile and preprocessing pipeline.
- * Sourced from NASA MOLA / HiRISE elevation data format (Jezero Crater / Gale Crater region).
- * Performs O(N) time & space preprocessing to compute slope, roughness, and terrain classification.
- */
+// manages mars elevation data and terrain classification
 class MarsTerrainGrid {
 private:
-    // Raw elevation matrix (in meters relative to Martian datum, e.g. Jezero crater floor: ~ -2500m to -2150m)
-    std::vector<std::vector<float>> elevationMatrix;
-    // Preprocessed slope matrix (in degrees or gradient magnitude)
-    std::vector<std::vector<float>> slopeMatrix;
-    // Preprocessed roughness matrix (local elevation variance)
-    std::vector<std::vector<float>> roughnessMatrix;
-    // Classified terrain grid
-    std::vector<std::vector<TerrainType>> terrainGrid;
-    // Traversal cost grid (energy / risk weight)
-    std::vector<std::vector<float>> traversalCostGrid;
+    float elevationMatrix[TOTAL_ROWS][TOTAL_COLUMNS];
+    float slopeMatrix[TOTAL_ROWS][TOTAL_COLUMNS];
+    float roughnessMatrix[TOTAL_ROWS][TOTAL_COLUMNS];
+    TerrainType terrainGrid[TOTAL_ROWS][TOTAL_COLUMNS];
+    float traversalCostGrid[TOTAL_ROWS][TOTAL_COLUMNS];
 
     float minElevation;
     float maxElevation;
 
 public:
     MarsTerrainGrid() {
-        elevationMatrix.resize(TOTAL_ROWS, std::vector<float>(TOTAL_COLUMNS, 0.0f));
-        slopeMatrix.resize(TOTAL_ROWS, std::vector<float>(TOTAL_COLUMNS, 0.0f));
-        roughnessMatrix.resize(TOTAL_ROWS, std::vector<float>(TOTAL_COLUMNS, 0.0f));
-        terrainGrid.resize(TOTAL_ROWS, std::vector<TerrainType>(TOTAL_COLUMNS, TerrainType::PLAINS));
-        traversalCostGrid.resize(TOTAL_ROWS, std::vector<float>(TOTAL_COLUMNS, 1.0f));
-
+        for (int r = 0; r < TOTAL_ROWS; ++r) {
+            for (int c = 0; c < TOTAL_COLUMNS; ++c) {
+                elevationMatrix[r][c] = 0.0f;
+                slopeMatrix[r][c] = 0.0f;
+                roughnessMatrix[r][c] = 0.0f;
+                terrainGrid[r][c] = TerrainType::PLAINS;
+                traversalCostGrid[r][c] = 1.0f;
+            }
+        }
         loadRealMarsDatasetTile();
         preprocessTerrain();
     }
 
-    /**
-     * @brief Loads elevation tile modeled directly from NASA MOLA / HiRISE Jezero Crater topography.
-     * Features: Delta deposits (columns 6-12), Crater Rim walls (obstacles), Dune fields, Central Mound.
-     */
+    // jezero crater orbital dem elevation values
     void loadRealMarsDatasetTile() {
-        // Base elevation profile modeled from NASA Jezero Crater orbital DEM:
-        // Base crater floor is around -2450m, crater rims rise up to -2150m.
         static const float baseDEM[TOTAL_ROWS][TOTAL_COLUMNS] = {
             {-2440, -2438, -2435, -2432, -2430, -2425, -2420, -2415, -2412, -2410, -2408, -2405, -2402, -2400, -2395, -2380, -2350, -2300, -2250, -2200, -2180, -2170, -2160, -2150, -2160, -2180, -2220, -2300, -2380, -2430},
             {-2438, -2435, -2432, -2430, -2426, -2422, -2418, -2412, -2410, -2408, -2404, -2400, -2398, -2392, -2385, -2340, -2280, -2220, -2170, -2140, -2130, -2140, -2155, -2165, -2180, -2210, -2260, -2340, -2400, -2435},
@@ -82,19 +68,11 @@ public:
         }
     }
 
-    /**
-     * @brief O(N) Terrain Preprocessing Pipeline:
-     * 1. Calculates gradient/slope per cell using 4-directional difference.
-     * 2. Calculates surface roughness (local window elevation variance).
-     * 3. Classifies each cell into Plains, Moderate Slope, Rough Regolith, or Obstacle.
-     * 4. Assigns traversal energy cost multipliers.
-     */
+    // compute slope, roughness and assign terrain classification
     void preprocessTerrain() {
-        // Delta vectors
         const int dr[4] = {-1, 1, 0, 0};
         const int dc[4] = {0, 0, -1, 1};
 
-        // Pass 1: Compute slope & roughness (O(N))
         for (int r = 0; r < TOTAL_ROWS; ++r) {
             for (int c = 0; c < TOTAL_COLUMNS; ++c) {
                 float currentElev = elevationMatrix[r][c];
@@ -112,50 +90,43 @@ public:
                         validNeighbors++;
                     }
                 }
-
-                slopeMatrix[r][c] = maxDiff; // Elevation gradient step (meters/cell)
+                slopeMatrix[r][c] = maxDiff;
                 roughnessMatrix[r][c] = (validNeighbors > 0) ? std::sqrt(sumDiff / validNeighbors) : 0.0f;
             }
         }
 
-        // Pass 2: Classification into Terrain Categories (O(N))
         for (int r = 0; r < TOTAL_ROWS; ++r) {
             for (int c = 0; c < TOTAL_COLUMNS; ++c) {
                 float slope = slopeMatrix[r][c];
                 float roughness = roughnessMatrix[r][c];
 
-                // Natural river valley passes cutting through the ridge (e.g. Neretva Vallis & delta canyon)
+                // valley pass
                 bool isValleyPass = ((r >= 2 && r <= 4 && c >= 12 && c <= 20) ||
                                      (r >= 9 && r <= 11 && c >= 12 && c <= 20) ||
                                      (r >= 16 && r <= 17 && c >= 12 && c <= 20));
-
                 bool isStartArea = (r <= 1 && c <= 1);
                 
                 if (!isStartArea && !isValleyPass && (slope >= 42.0f || roughness >= 38.0f)) {
-                    // Impassable cliff / crater escarpment
                     terrainGrid[r][c] = TerrainType::OBSTACLE;
                     traversalCostGrid[r][c] = 9999.0f;
                 } else if (slope >= 22.0f || roughness >= 18.0f) {
-                    // Rough regolith / steep boulder fields
                     terrainGrid[r][c] = TerrainType::ROUGH_REGOLITH;
                     traversalCostGrid[r][c] = 3.4f + (slope / 20.0f);
                 } else if (slope >= 10.0f || roughness >= 8.0f) {
-                    // Moderate slope / gravel dune
                     terrainGrid[r][c] = TerrainType::MODERATE_SLOPE;
                     traversalCostGrid[r][c] = 1.8f + (slope / 30.0f);
                 } else {
-                    // Smooth sedimentary plains / crater floor
                     terrainGrid[r][c] = TerrainType::PLAINS;
                     traversalCostGrid[r][c] = 1.0f + (slope / 50.0f);
                 }
             }
         }
 
-        // Add a few authentic Martian crater structures (craters with rims)
+        // sample crater formations
         addMartianCrater(6, 17, 2);
         addMartianCrater(14, 8, 2);
 
-        // Ensure start position is clear and smooth
+        // start point is always clear
         terrainGrid[0][0] = TerrainType::PLAINS;
         terrainGrid[0][1] = TerrainType::PLAINS;
         terrainGrid[1][0] = TerrainType::PLAINS;
@@ -184,7 +155,6 @@ public:
         }
     }
 
-    // Getters and cell queries
     bool isPassable(int r, int c) const {
         if (r < 0 || r >= TOTAL_ROWS || c < 0 || c >= TOTAL_COLUMNS) return false;
         return terrainGrid[r][c] != TerrainType::OBSTACLE;
@@ -224,8 +194,7 @@ public:
     float getEdgeTraversalEnergy(Point2D from, Point2D to) const {
         if (!isPassable(to.getRow(), to.getColumn())) return 9999.0f;
         float baseCost = getCellCost(to.getRow(), to.getColumn());
-        float elevDiff = std::max(0.0f, getElevation(to.getRow(), to.getColumn()) - getElevation(from.getRow(), from.getColumn()));
-        // Uphill traversal consumes extra battery proportional to slope gradient
+        float elevDiff = findMax(0.0f, getElevation(to.getRow(), to.getColumn()) - getElevation(from.getRow(), from.getColumn()));
         return baseCost + (elevDiff * 0.12f);
     }
 
@@ -235,7 +204,6 @@ public:
             return COLOR_TERRAIN_OBSTACLE;
         }
 
-        // Interpolate elevation shading with terrain base
         float normElev = getNormalizedElevation(r, c);
         sf::Color base;
         if (type == TerrainType::PLAINS) {
@@ -246,7 +214,6 @@ public:
             base = COLOR_TERRAIN_ROUGH;
         }
 
-        // Apply realistic Martian sun lighting gradient based on elevation
         uint8_t rCol = static_cast<uint8_t>(clampValue(base.r + normElev * 40.0f, 0.0f, 255.0f));
         uint8_t gCol = static_cast<uint8_t>(clampValue(base.g + normElev * 25.0f, 0.0f, 255.0f));
         uint8_t bCol = static_cast<uint8_t>(clampValue(base.b + normElev * 15.0f, 0.0f, 255.0f));

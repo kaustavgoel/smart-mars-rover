@@ -104,12 +104,16 @@ clang++ -std=c++17 -O3 -I/opt/homebrew/include -I. test_suite.cpp \
 | **`[Q]`** | Toggle **Spatial QuadTree Bounding-Box Overlay** |
 | **`[D]`** | Toggle **Dijkstra Baseline Path Overlay** |
 | **`[Space]`** | Advance one step forward in Auto Mode |
+| **`[B]`** | Recharge Rover battery back to 100% |
 | **`[P]`** | Pause / Resume simulation time |
 | **`[R]`** | Reset Rover, battery, candidate sites, and logs to mission start |
 
 ---
 
 ## Academic References
+
 * Cormen, T. H., Leiserson, C. E., Rivest, R. L., & Stein, C. — *Introduction to Algorithms*, MIT Press.
+
 * Adelson-Velsky, G. M., & Landis, E. M. — *An Algorithm for the Organization of Information* (Original AVL Tree).
+
 * NASA / USGS — Mars elevation/terrain datasets for the DEM/heightmap data.

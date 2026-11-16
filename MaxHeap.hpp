@@ -2,26 +2,33 @@
 #define MAX_HEAP_HPP
 
 #include "Types.hpp"
-#include <vector>
-#include <stdexcept>
 #include <iostream>
-#include <algorithm>
 
-/**
- * @brief Custom Max-Heap prioritizing candidate Mars excavation sites by Scientific Value.
- * Supports O(log N) insertion and extraction, keeping highest-value scientific targets at the root.
- */
+// custom max-heap to prioritize science sites by value
 class MaxHeap {
 private:
-    std::vector<SiteData> heapArray;
+    SiteData* heapArray;
+    int heapCapacity;
+    int heapSize;
 
     int parent(int i) const { return (i - 1) / 2; }
     int leftChild(int i) const { return 2 * i + 1; }
     int rightChild(int i) const { return 2 * i + 2; }
 
+    void resize() {
+        int newCap = heapCapacity * 2;
+        SiteData* newArr = new SiteData[newCap];
+        for (int i = 0; i < heapSize; ++i) {
+            newArr[i] = heapArray[i];
+        }
+        delete[] heapArray;
+        heapArray = newArr;
+        heapCapacity = newCap;
+    }
+
     void bubbleUp(int index) {
         while (index > 0 && heapArray[index].scienceValue > heapArray[parent(index)].scienceValue) {
-            std::swap(heapArray[index], heapArray[parent(index)]);
+            customSwap(heapArray[index], heapArray[parent(index)]);
             index = parent(index);
         }
     }
@@ -30,59 +37,84 @@ private:
         int maxIndex = index;
         int left = leftChild(index);
         int right = rightChild(index);
-        int n = static_cast<int>(heapArray.size());
 
-        if (left < n && heapArray[left].scienceValue > heapArray[maxIndex].scienceValue) {
+        if (left < heapSize && heapArray[left].scienceValue > heapArray[maxIndex].scienceValue) {
             maxIndex = left;
         }
-
-        if (right < n && heapArray[right].scienceValue > heapArray[maxIndex].scienceValue) {
+        if (right < heapSize && heapArray[right].scienceValue > heapArray[maxIndex].scienceValue) {
             maxIndex = right;
         }
 
         if (index != maxIndex) {
-            std::swap(heapArray[index], heapArray[maxIndex]);
+            customSwap(heapArray[index], heapArray[maxIndex]);
             bubbleDown(maxIndex);
         }
     }
 
 public:
-    MaxHeap() = default;
+    MaxHeap(int initialCap = 16) : heapCapacity(initialCap), heapSize(0) {
+        heapArray = new SiteData[heapCapacity];
+    }
+
+    ~MaxHeap() {
+        delete[] heapArray;
+    }
+
+    // copy constructor
+    MaxHeap(const MaxHeap& other) : heapCapacity(other.heapCapacity), heapSize(other.heapSize) {
+        heapArray = new SiteData[heapCapacity];
+        for (int i = 0; i < heapSize; ++i) {
+            heapArray[i] = other.heapArray[i];
+        }
+    }
+
+    // assignment operator
+    MaxHeap& operator=(const MaxHeap& other) {
+        if (this != &other) {
+            delete[] heapArray;
+            heapCapacity = other.heapCapacity;
+            heapSize = other.heapSize;
+            heapArray = new SiteData[heapCapacity];
+            for (int i = 0; i < heapSize; ++i) {
+                heapArray[i] = other.heapArray[i];
+            }
+        }
+        return *this;
+    }
 
     void insert(const SiteData& site) {
-        heapArray.push_back(site);
-        bubbleUp(static_cast<int>(heapArray.size()) - 1);
+        if (heapSize >= heapCapacity) {
+            resize();
+        }
+        heapArray[heapSize] = site;
+        bubbleUp(heapSize);
+        heapSize++;
     }
 
     SiteData peekMax() const {
-        if (isEmpty()) {
-            throw std::runtime_error("Heap is empty!");
-        }
+        if (isEmpty()) return SiteData();
         return heapArray[0];
     }
 
     SiteData extractMax() {
-        if (isEmpty()) {
-            throw std::runtime_error("Heap is empty!");
-        }
+        if (isEmpty()) return SiteData();
         SiteData maxSite = heapArray[0];
-        heapArray[0] = heapArray.back();
-        heapArray.pop_back();
-
-        if (!heapArray.empty()) {
+        heapArray[0] = heapArray[heapSize - 1];
+        heapSize--;
+        if (heapSize > 0) {
             bubbleDown(0);
         }
         return maxSite;
     }
 
     bool removeSiteById(int siteId) {
-        for (size_t i = 0; i < heapArray.size(); ++i) {
+        for (int i = 0; i < heapSize; ++i) {
             if (heapArray[i].siteId == siteId) {
-                heapArray[i] = heapArray.back();
-                heapArray.pop_back();
-                if (i < heapArray.size()) {
-                    bubbleDown(static_cast<int>(i));
-                    bubbleUp(static_cast<int>(i));
+                heapArray[i] = heapArray[heapSize - 1];
+                heapSize--;
+                if (i < heapSize) {
+                    bubbleDown(i);
+                    bubbleUp(i);
                 }
                 return true;
             }
@@ -91,19 +123,15 @@ public:
     }
 
     bool isEmpty() const {
-        return heapArray.empty();
+        return heapSize == 0;
     }
 
-    size_t size() const {
-        return heapArray.size();
+    int size() const {
+        return heapSize;
     }
 
     void clear() {
-        heapArray.clear();
-    }
-
-    const std::vector<SiteData>& getElements() const {
-        return heapArray;
+        heapSize = 0;
     }
 };
 

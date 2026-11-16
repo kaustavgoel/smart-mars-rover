@@ -14,121 +14,85 @@
 #include <SFML/Graphics.hpp>
 #include <iostream>
 #include <vector>
-#include <memory>
 #include <ctime>
 #include <cstdlib>
-#include <functional>
 
-int main() {
-    std::cout << "========================================================\n"
-              << " SMART MARS ROVER: MULTI-SITE NAVIGATION & EXCAVATION\n"
-              << " Jaypee Institute of Information Technology - B.Tech III\n"
-              << "========================================================" << std::endl;
-
-    srand(static_cast<unsigned int>(time(nullptr)));
-
-    // Create SFML Render Window (900 x 780 pixels)
-    sf::VideoMode screenMode({static_cast<unsigned int>(WINDOW_WIDTH_PIXELS),
-                              static_cast<unsigned int>(WINDOW_HEIGHT_PIXELS)});
-    sf::RenderWindow window(screenMode, "Mars Rover: Multi-Site Navigation & Excavation Planning");
-    window.setFramerateLimit(60);
-
-    // Font loading with standard system fallbacks
+// main simulation class tying all subsystems together
+class MarsSimulation {
+private:
+    sf::RenderWindow window;
     sf::Font font;
-    bool fontLoaded = false;
-    const std::vector<std::string> fontCandidates = {
-        "/System/Library/Fonts/Supplemental/Arial.ttf",
-        "/System/Library/Fonts/Helvetica.ttc",
-        "/Library/Fonts/Arial.ttf",
-        "arial.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
-        "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf",
-        "C:/Windows/Fonts/arial.ttf"
-    };
 
-    for (const auto& path : fontCandidates) {
-        if (font.openFromFile(path)) {
-            fontLoaded = true;
-            std::cout << "[System] Font loaded: " << path << std::endl;
-            break;
-        }
-    }
-
-    if (!fontLoaded) {
-        std::cerr << "[Warning] Font not found. Text display may be affected." << std::endl;
-    }
-
-    // 1. Initialize Terrain Preprocessing Pipeline (NASA Jezero DEM Tile)
     MarsTerrainGrid terrainGrid;
-
-    // 2. Initialize Spatial Indexing (QuadTree)
     QuadTree spatialTree;
-    for (int r = 0; r < TOTAL_ROWS; ++r) {
-        for (int c = 0; c < TOTAL_COLUMNS; ++c) {
-            if (terrainGrid.getTerrainType(r, c) == TerrainType::OBSTACLE) {
-                spatialTree.insert(Point2D(r, c), "OBSTACLE");
-            }
-        }
-    }
+    std::vector<SiteData> candidateSites;
 
-    // 3. Define Candidate Scientific Sites across Martian geological terrain
-    std::vector<SiteData> candidateSites = {
-        SiteData(101, "Delta Clay Beds",     Point2D(4, 8),   94.0f, 45.0f, -2415.0f, 12.0f, 8.5f,  0.88f),
-        SiteData(102, "Olivine Outcrop",     Point2D(7, 21),  86.0f, 52.0f, -2120.0f, 22.0f, 14.0f, 0.76f),
-        SiteData(103, "Carbonate Terrace",   Point2D(11, 16), 91.0f, 48.0f, -2180.0f, 15.0f, 9.2f,  0.92f),
-        SiteData(104, "Hematite Spherules",  Point2D(16, 6),  78.0f, 40.0f, -2410.0f, 8.0f,  6.0f,  0.82f),
-        SiteData(105, "Basalt Dune Crest",   Point2D(15, 24), 65.0f, 38.0f, -2080.0f, 18.0f, 11.5f, 0.60f),
-        SiteData(106, "Crater Ejecta Rim",   Point2D(3, 24),  72.0f, 60.0f, -2150.0f, 28.0f, 24.0f, 0.55f)
-    };
-
-    // 4. File Sites into AVL Tree (Permanent Catalog) & Max-Heap (Dynamic Priority)
     AVLTree siteAVL;
     MaxHeap siteHeap;
-
-    auto populateSites = [&]() {
-        siteAVL.clear();
-        siteHeap.clear();
-        for (const auto& site : candidateSites) {
-            siteAVL.insert(site);
-            siteHeap.insert(site);
-            spatialTree.insert(site.coord, "SITE", site.siteId);
-        }
-    };
-    populateSites();
-
-    // 5. Initialize Autonomous Systems
-    MarsRoverVehicle rover(420.0f); // 420 Wh initial battery budget
+    MarsRoverVehicle rover;
     RoverDecisionTree decisionTree;
     ExcavationNeuralNetwork neuralNet;
     ExcavationLog excavationLog;
-    UserInterfaceHUD hud(font);
+    UserInterfaceHUD hud;
 
-    // 6. Compute Initial 0/1 Knapsack Mission Tour
-    KnapsackPlan currentKnapsackPlan = KnapsackOptimizer::optimizeSiteSelection(
-        candidateSites, terrainGrid, rover.getPosition(), static_cast<int>(rover.getBattery())
-    );
-    rover.setPlannedTour(currentKnapsackPlan.selectedSiteIds);
-
-    // State Variables (Starts in MANUAL mode, exactly like last year's project!)
-    bool isAutoMode = false;
-    bool isPaused = false;
-    bool showQuadTree = false;
-    bool showDijkstra = false;
-    float missionTime = 0.0f;
+    // runtime flags
+    bool isAutoMode;
+    bool isPaused;
+    bool showQuadTree;
+    bool showDijkstra;
+    float missionTime;
 
     PathResult currentAStarResult;
     PathResult currentDijkstraResult;
     DecisionResult currentDecision;
     ExcavationPrediction currentNNPrediction;
+    KnapsackPlan currentKnapsackPlan;
 
     sf::Clock frameClock;
     sf::Clock moveTimer;
-    float drillAnimationTimer = 0.0f;
-    bool isDrilling = false;
+    float drillAnimationTimer;
+    bool isDrilling;
 
-    // Helper: Plan Path to Next Waypoint in Tour
-    std::function<void()> planNextTarget;
-    planNextTarget = [&]() {
+    void loadSystemFont() {
+        const std::string fontCandidates[] = {
+            "/System/Library/Fonts/Supplemental/Arial.ttf",
+            "/System/Library/Fonts/Helvetica.ttc",
+            "/Library/Fonts/Arial.ttf",
+            "arial.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+            "C:/Windows/Fonts/arial.ttf"
+        };
+        for (const auto& path : fontCandidates) {
+            if (font.openFromFile(path)) {
+                std::cout << "[System] Font loaded: " << path << std::endl;
+                return;
+            }
+        }
+        std::cerr << "[Warning] No font loaded, text might not show.\n";
+    }
+
+    void initCandidateSites() {
+        candidateSites = {
+            SiteData(101, "Delta Clay Beds",    Point2D(4, 8),   94.0f, 45.0f, -2415.0f, 12.0f, 8.5f,  0.88f),
+            SiteData(102, "Olivine Outcrop",    Point2D(7, 21),  86.0f, 52.0f, -2120.0f, 22.0f, 14.0f, 0.76f),
+            SiteData(103, "Carbonate Terrace",  Point2D(11, 16), 91.0f, 48.0f, -2180.0f, 15.0f, 9.2f,  0.92f),
+            SiteData(104, "Hematite Spherules", Point2D(16, 6),  78.0f, 40.0f, -2410.0f, 8.0f,  6.0f,  0.82f),
+            SiteData(105, "Basalt Dune Crest",  Point2D(15, 24), 65.0f, 38.0f, -2080.0f, 18.0f, 11.5f, 0.60f),
+            SiteData(106, "Crater Ejecta Rim",  Point2D(3, 24),  72.0f, 60.0f, -2150.0f, 28.0f, 24.0f, 0.55f)
+        };
+    }
+
+    void populateTreesAndHeap() {
+        siteAVL.clear();
+        siteHeap.clear();
+        for (const auto& s : candidateSites) {
+            siteAVL.insert(s);
+            siteHeap.insert(s);
+            spatialTree.insert(s.coord, "SITE", s.siteId);
+        }
+    }
+
+    void planNextTarget() {
         int nextId = rover.getActiveTargetSiteId();
         if (nextId == -1) {
             rover.setStatus(RoverState::SUCCESSFULLY_ARRIVED);
@@ -138,11 +102,9 @@ int main() {
         SiteData* target = siteAVL.search(nextId);
         if (!target) return;
 
-        // Path energy estimate
         float dist = rover.getPosition().distanceTo(target->coord);
         float estTripCost = dist * 2.2f;
 
-        // Run Decision Tree commitment evaluation
         currentDecision = decisionTree.evaluateSiteCommitment(
             rover.getBattery(), estTripCost, *target, terrainGrid, spatialTree
         );
@@ -155,7 +117,6 @@ int main() {
             return;
         }
 
-        // Run A* and Dijkstra pathfinding
         currentAStarResult = NavigationSystem::findPathAStar(terrainGrid, rover.getPosition(), target->coord);
         currentDijkstraResult = NavigationSystem::findPathDijkstra(terrainGrid, rover.getPosition(), target->coord);
 
@@ -164,16 +125,30 @@ int main() {
         } else {
             rover.setStatus(RoverState::PATH_IS_STUCK);
         }
-    };
+    }
 
-    // Calculate initial preview path for target
-    planNextTarget();
-    rover.setStatus(RoverState::WAITING_IDLE);
+    void doManualMove(int dr, int dc) {
+        if (isDrilling) return;
+        rover.moveManually(dr, dc, terrainGrid);
+        for (auto& site : candidateSites) {
+            SiteData* found = siteAVL.search(site.siteId);
+            bool visited = (found ? found->isVisited : site.isVisited);
+            if (!visited && rover.getCurrentRow() == site.coord.getRow() &&
+                rover.getCurrentColumn() == site.coord.getColumn()) {
+                rover.setActiveTargetSiteId(site.siteId);
+                isDrilling = true;
+                drillAnimationTimer = 0.0f;
+                std::cout << "[Mission] Arrived at Site S" << site.siteId << "! Initiating excavation drill.\n";
+                break;
+            }
+        }
+    }
 
-    auto resetSimulation = [&]() {
+    void resetSimulation() {
         std::cout << "[Mission] Resetting environment and rover.\n";
         rover.resetRover();
-        populateSites();
+        initCandidateSites();
+        populateTreesAndHeap();
         excavationLog.clear();
         currentKnapsackPlan = KnapsackOptimizer::optimizeSiteSelection(
             candidateSites, terrainGrid, rover.getPosition(), static_cast<int>(rover.getBattery())
@@ -185,47 +160,17 @@ int main() {
         isPaused = false;
         missionTime = 0.0f;
         isDrilling = false;
-    };
+    }
 
-    // Helper to perform manual step and check site arrival
-    auto doManualMove = [&](int dr, int dc) {
-        rover.moveManually(dr, dc, terrainGrid);
-
-        // Check if rover stepped onto any unexcavated candidate site
-        for (const auto& site : candidateSites) {
-            if (!site.isVisited && rover.getCurrentRow() == site.coord.getRow() &&
-                rover.getCurrentColumn() == site.coord.getColumn()) {
-                rover.setActiveTargetSiteId(site.siteId);
-                isDrilling = true;
-                drillAnimationTimer = 0.0f;
-                std::cout << "[Mission] Arrived at Site S" << site.siteId << "! Initiating excavation drill.\n";
-                break;
-            }
-        }
-    };
-
-    std::cout << "[System] Ready. Manual control active. Use Arrow keys to move.\n";
-
-    // Main Simulation Loop
-    while (window.isOpen()) {
-        float deltaTime = frameClock.restart().asSeconds();
-
-        if (!isPaused) {
-            missionTime += deltaTime;
-        }
-
-        // ================= KEYBOARD EVENT HANDLING =================
+    void handleEvents() {
         while (auto eventOpt = window.pollEvent()) {
             auto& event = *eventOpt;
-
             if (event.is<sf::Event::Closed>()) {
                 window.close();
             }
 
             if (auto* key = event.getIf<sf::Event::KeyPressed>()) {
                 using Key = sf::Keyboard::Key;
-
-                // Mode toggle (Auto Tour vs Manual Control)
                 if (key->code == Key::M) {
                     isAutoMode = !isAutoMode;
                     if (isAutoMode) {
@@ -236,28 +181,21 @@ int main() {
                         rover.setStatus(RoverState::MANUALLY_EXPLORING);
                         std::cout << "[Control] Switched to MANUAL mode.\n";
                     }
-                }
-                // Pause toggle
-                else if (key->code == Key::P) {
+                } else if (key->code == Key::P) {
                     isPaused = !isPaused;
                     std::cout << (isPaused ? "[Control] Simulation PAUSED.\n" : "[Control] Simulation RESUMED.\n");
-                }
-                // Reset simulation
-                else if (key->code == Key::R) {
+                } else if (key->code == Key::R) {
                     resetSimulation();
-                }
-                // Toggle QuadTree overlay
-                else if (key->code == Key::Q) {
+                } else if (key->code == Key::B) {
+                    rover.rechargeBattery();
+                    std::cout << "[Power] Solar battery recharged to 100%!\n";
+                } else if (key->code == Key::Q) {
                     showQuadTree = !showQuadTree;
                     std::cout << "[Display] QuadTree overlay: " << (showQuadTree ? "ON" : "OFF") << "\n";
-                }
-                // Toggle Dijkstra baseline path
-                else if (key->code == Key::D) {
+                } else if (key->code == Key::D) {
                     showDijkstra = !showDijkstra;
                     std::cout << "[Display] Dijkstra overlay: " << (showDijkstra ? "ON" : "OFF") << "\n";
-                }
-                // Manual single step in auto mode
-                else if (key->code == Key::Space) {
+                } else if (key->code == Key::Space) {
                     if (rover.getStatus() == RoverState::AUTOMATIC_NAVIGATING) {
                         bool stillMoving = rover.executeNextAutomaticStep(terrainGrid);
                         if (!stillMoving && rover.getActiveTargetSiteId() != -1) {
@@ -265,124 +203,121 @@ int main() {
                             drillAnimationTimer = 0.0f;
                         }
                     }
-                }
-                // ARROW KEYS (Tapping arrow keys moves rover immediately!)
-                else if (key->code == Key::Up) {
+                } else if (key->code == Key::Up) {
                     isAutoMode = false;
                     doManualMove(-1, 0);
-                }
-                else if (key->code == Key::Down) {
+                } else if (key->code == Key::Down) {
                     isAutoMode = false;
                     doManualMove(1, 0);
-                }
-                else if (key->code == Key::Left) {
+                } else if (key->code == Key::Left) {
                     isAutoMode = false;
                     doManualMove(0, -1);
-                }
-                else if (key->code == Key::Right) {
+                } else if (key->code == Key::Right) {
                     isAutoMode = false;
                     doManualMove(0, 1);
                 }
             }
         }
+    }
 
-        // ================= LOGIC UPDATE =================
-        if (!isPaused) {
-            rover.updateAnimation(deltaTime);
+    void update(float deltaTime) {
+        if (isPaused) return;
+        missionTime += deltaTime;
+        rover.updateAnimation(deltaTime);
 
-            // Proximity sensor query using QuadTree
-            int nearestObs = spatialTree.findDistanceToNearestObstacle(rover.getPosition(), 6.0f);
-            rover.setObstacleDistance(nearestObs);
+        // proximity sensor
+        int nearestObs = spatialTree.findDistanceToNearestObstacle(rover.getPosition(), 6.0f);
+        rover.setObstacleDistance(nearestObs);
 
-            // Active Excavation Drill Handling
-            if (isDrilling) {
-                drillAnimationTimer += deltaTime;
-                rover.setStatus(RoverState::EXCAVATING_SITE);
+        if (isDrilling) {
+            drillAnimationTimer += deltaTime;
+            rover.setStatus(RoverState::EXCAVATING_SITE);
 
-                if (drillAnimationTimer >= 1.6f) {
-                    // Drilling complete: run decision evaluation, neural network, and log
-                    int currentSiteId = rover.getActiveTargetSiteId();
-                    SiteData* site = siteAVL.search(currentSiteId);
+            if (drillAnimationTimer >= 1.6f) {
+                int currentSiteId = rover.getActiveTargetSiteId();
+                SiteData* site = siteAVL.search(currentSiteId);
 
-                    if (site) {
-                        DecisionResult digDecision = decisionTree.evaluateExcavationStrategy(
-                            rover.getBattery(), *site, site->roughness
-                        );
+                if (site) {
+                    DecisionResult digDecision = decisionTree.evaluateExcavationStrategy(
+                        rover.getBattery(), *site, site->roughness
+                    );
 
-                        MathVector nnInputs = {
-                            terrainGrid.getNormalizedElevation(site->coord.getRow(), site->coord.getColumn()),
-                            site->slope / 45.0f,
-                            site->roughness / 30.0f,
-                            site->mineralSignature
-                        };
+                    MathVector nnInputs = {
+                        terrainGrid.getNormalizedElevation(site->coord.getRow(), site->coord.getColumn()),
+                        site->slope / 45.0f,
+                        site->roughness / 30.0f,
+                        site->mineralSignature
+                    };
 
-                        currentNNPrediction = neuralNet.forward(nnInputs);
+                    currentNNPrediction = neuralNet.forward(nnInputs);
+                    rover.deductExcavationBattery(site->excavationEnergy);
+                    float sampleGrams = currentNNPrediction.predictedDepthCm * 4.2f;
+                    rover.addScienceYield(site->scienceValue, sampleGrams);
 
-                        rover.deductExcavationBattery(site->excavationEnergy);
-                        float sampleGrams = currentNNPrediction.predictedDepthCm * 4.2f;
-                        rover.addScienceYield(site->scienceValue, sampleGrams);
+                    std::string outcome = digDecision.decisionTitle + " (" +
+                                          std::to_string(static_cast<int>(sampleGrams)) + "g core sample)";
+                    excavationLog.appendRecord(
+                        site->siteId, site->name, site->coord,
+                        currentNNPrediction.offsetRow, currentNNPrediction.offsetCol,
+                        currentNNPrediction.predictedDepthCm, sampleGrams,
+                        outcome, site->excavationEnergy, missionTime
+                    );
 
-                        std::string outcome = digDecision.decisionTitle + " (" +
-                                              std::to_string(static_cast<int>(sampleGrams)) + "g core sample)";
-                        excavationLog.appendRecord(
-                            site->siteId, site->name, site->coord,
-                            currentNNPrediction.offsetRow, currentNNPrediction.offsetCol,
-                            currentNNPrediction.predictedDepthCm, sampleGrams,
-                            outcome, site->excavationEnergy, missionTime
-                        );
-
-                        site->isVisited = true;
-                        siteHeap.removeSiteById(site->siteId);
-
-                        std::cout << "[Science] Core extracted at S" << site->siteId << " (" << site->name
-                                  << ")! Depth: " << currentNNPrediction.predictedDepthCm << " cm, Yield: "
-                                  << sampleGrams << " g.\n";
-                    }
-
-                    isDrilling = false;
-                    drillAnimationTimer = 0.0f;
-                    if (isAutoMode) {
-                        rover.advanceTour();
-                        planNextTarget();
-                    } else {
-                        rover.setStatus(RoverState::MANUALLY_EXPLORING);
-                    }
-                }
-            } else if (isAutoMode) {
-                // Auto Navigation Pace
-                if (moveTimer.getElapsedTime().asSeconds() >= AUTOMATIC_MOVE_INTERVAL) {
-                    moveTimer.restart();
-
-                    if (rover.getStatus() == RoverState::AUTOMATIC_NAVIGATING) {
-                        bool stillMoving = rover.executeNextAutomaticStep(terrainGrid);
-                        if (!stillMoving && rover.getActiveTargetSiteId() != -1) {
-                            isDrilling = true;
-                            drillAnimationTimer = 0.0f;
+                    site->isVisited = true;
+                    for (auto& cs : candidateSites) {
+                        if (cs.siteId == site->siteId) {
+                            cs.isVisited = true;
+                            break;
                         }
                     }
-                }
-            } else {
-                // Manual Navigation: Continuous Arrow Key Holding
-                if (moveTimer.getElapsedTime().asSeconds() >= MANUAL_MOVE_INTERVAL) {
-                    using Key = sf::Keyboard::Key;
-                    int dr = 0, dc = 0;
-                    if (sf::Keyboard::isKeyPressed(Key::Up)) dr = -1;
-                    else if (sf::Keyboard::isKeyPressed(Key::Down)) dr = 1;
-                    else if (sf::Keyboard::isKeyPressed(Key::Left)) dc = -1;
-                    else if (sf::Keyboard::isKeyPressed(Key::Right)) dc = 1;
+                    siteHeap.removeSiteById(site->siteId);
 
-                    if (dr != 0 || dc != 0) {
-                        moveTimer.restart();
-                        doManualMove(dr, dc);
+                    std::cout << "[Science] Core extracted at S" << site->siteId << " (" << site->name
+                              << ")! Depth: " << currentNNPrediction.predictedDepthCm << " cm, Yield: "
+                              << sampleGrams << " g.\n";
+                }
+
+                isDrilling = false;
+                drillAnimationTimer = 0.0f;
+                if (isAutoMode) {
+                    rover.advanceTour();
+                    planNextTarget();
+                } else {
+                    rover.setStatus(RoverState::MANUALLY_EXPLORING);
+                }
+            }
+        } else if (isAutoMode) {
+            if (moveTimer.getElapsedTime().asSeconds() >= AUTOMATIC_MOVE_INTERVAL) {
+                moveTimer.restart();
+                if (rover.getStatus() == RoverState::AUTOMATIC_NAVIGATING) {
+                    bool stillMoving = rover.executeNextAutomaticStep(terrainGrid);
+                    if (!stillMoving && rover.getActiveTargetSiteId() != -1) {
+                        isDrilling = true;
+                        drillAnimationTimer = 0.0f;
                     }
                 }
             }
-        }
+        } else {
+            if (moveTimer.getElapsedTime().asSeconds() >= MANUAL_MOVE_INTERVAL) {
+                using Key = sf::Keyboard::Key;
+                int dr = 0, dc = 0;
+                if (sf::Keyboard::isKeyPressed(Key::Up)) dr = -1;
+                else if (sf::Keyboard::isKeyPressed(Key::Down)) dr = 1;
+                else if (sf::Keyboard::isKeyPressed(Key::Left)) dc = -1;
+                else if (sf::Keyboard::isKeyPressed(Key::Right)) dc = 1;
 
-        // ================= RENDERING =================
+                if (dr != 0 || dc != 0) {
+                    moveTimer.restart();
+                    doManualMove(dr, dc);
+                }
+            }
+        }
+    }
+
+    void render() {
         window.clear(COLOR_BACKGROUND);
 
-        // 1. Draw 20x30 Martian Terrain Grid
+        // draw terrain cells
         for (int r = 0; r < TOTAL_ROWS; ++r) {
             for (int c = 0; c < TOTAL_COLUMNS; ++c) {
                 float px = static_cast<float>(c * CELL_SIZE_PIXELS);
@@ -403,7 +338,7 @@ int main() {
             }
         }
 
-        // 2. Draw QuadTree Bounding Boxes (if toggled on with Q)
+        // draw quadtree boxes
         if (showQuadTree) {
             auto boxes = spatialTree.getAllBoundingBoxes();
             for (const auto& b : boxes) {
@@ -416,7 +351,7 @@ int main() {
             }
         }
 
-        // 3. Draw Dijkstra Baseline Route (if toggled on with D)
+        // dijkstra baseline path
         if (showDijkstra && currentDijkstraResult.pathFound) {
             for (const auto& pt : currentDijkstraResult.path) {
                 sf::CircleShape dot(3.0f);
@@ -427,7 +362,7 @@ int main() {
             }
         }
 
-        // 4. Draw A* Planned Route
+        // a* planned route
         const auto& plannedPath = rover.getCurrentPath();
         int pathLen = static_cast<int>(plannedPath.size());
         for (int i = 0; i < pathLen; ++i) {
@@ -449,8 +384,8 @@ int main() {
             }
         }
 
-        // 5. Draw Movement Trail
-        const auto& trail = rover.getTrail();
+        // rover trail
+        auto trail = rover.getTrail();
         int trailLen = static_cast<int>(trail.size());
         for (int i = 0; i < trailLen; ++i) {
             Point2D tp = trail[i];
@@ -464,7 +399,7 @@ int main() {
             window.draw(trailCircle);
         }
 
-        // 6. Draw Candidate Science Sites (Beacons)
+        // candidate sites
         float pulse = 0.5f + 0.5f * std::sin(missionTime * 3.5f);
         auto allSites = siteAVL.getAllSitesInOrder();
         for (const auto& site : allSites) {
@@ -476,7 +411,6 @@ int main() {
                                 (isTarget ? COLOR_WARNING :
                                 (site.isSelectedInKnapsack ? COLOR_ACCENT : sf::Color(160, 180, 205)));
 
-            // Outer pulse ring
             if (!site.isVisited) {
                 float ringRad = CELL_SIZE_PIXELS / 2.0f + pulse * 5.0f;
                 sf::CircleShape ring(ringRad);
@@ -488,7 +422,6 @@ int main() {
                 window.draw(ring);
             }
 
-            // Site core dot
             sf::CircleShape core(7.0f);
             core.setPosition(sf::Vector2f(sx + CELL_SIZE_PIXELS / 2.0f - 7.0f,
                                           sy + CELL_SIZE_PIXELS / 2.0f - 7.0f));
@@ -497,7 +430,6 @@ int main() {
             core.setOutlineThickness(1.0f);
             window.draw(core);
 
-            // Label S101
             sf::Text label(font, "S" + std::to_string(site.siteId), 9);
             label.setFillColor(sf::Color(240, 245, 255));
             label.setStyle(sf::Text::Bold);
@@ -505,16 +437,15 @@ int main() {
             window.draw(label);
         }
 
-        // 7. Draw Rover Vehicle
+        // rover body
         {
             float roverCenterX = rover.getDrawingColumn() * CELL_SIZE_PIXELS + CELL_SIZE_PIXELS / 2.0f;
             float roverCenterY = rover.getDrawingRow() * CELL_SIZE_PIXELS + CELL_SIZE_PIXELS / 2.0f;
             float rRad = CELL_SIZE_PIXELS / 2.0f - 3.5f;
 
-            // Shadow & Glow
             sf::CircleShape shadow(rRad + 2.0f);
             shadow.setFillColor(sf::Color(0, 0, 0, 90));
-            shadow.setPosition(sf::Vector2f(roverCenterX - rRad - 2.0f + 2.0f, roverCenterY - rRad - 2.0f + 2.0f));
+            shadow.setPosition(sf::Vector2f(roverCenterX - rRad, roverCenterY - rRad));
             window.draw(shadow);
 
             sf::Color roverCol = rover.getRoverProximityColor();
@@ -523,7 +454,6 @@ int main() {
             glow.setPosition(sf::Vector2f(roverCenterX - rRad - 4.0f, roverCenterY - rRad - 4.0f));
             window.draw(glow);
 
-            // Body
             sf::CircleShape body(rRad);
             body.setFillColor(roverCol);
             body.setOutlineColor(sf::Color::White);
@@ -531,7 +461,6 @@ int main() {
             body.setPosition(sf::Vector2f(roverCenterX - rRad, roverCenterY - rRad));
             window.draw(body);
 
-            // Center hub & camera eye
             sf::CircleShape centerHub(rRad * 0.45f);
             centerHub.setFillColor(sf::Color(25, 30, 40));
             centerHub.setPosition(sf::Vector2f(roverCenterX - rRad * 0.45f, roverCenterY - rRad * 0.45f));
@@ -543,7 +472,7 @@ int main() {
             window.draw(cameraEye);
         }
 
-        // 8. Drill Shockwave Animation when Excavating
+        // drill animation
         if (isDrilling) {
             float drillR = (drillAnimationTimer / 1.6f) * (CELL_SIZE_PIXELS * 1.8f);
             float drillX = rover.getCurrentColumn() * CELL_SIZE_PIXELS + CELL_SIZE_PIXELS / 2.0f;
@@ -563,7 +492,6 @@ int main() {
             window.draw(drillText);
         }
 
-        // 9. Draw Clean HUD Panel
         hud.render(window, rover, siteHeap, siteAVL, currentKnapsackPlan,
                    currentDecision, currentNNPrediction, excavationLog,
                    isAutoMode, isPaused, missionTime, currentAStarResult,
@@ -572,6 +500,68 @@ int main() {
         window.display();
     }
 
-    std::cout << "[Mission] Simulation closed.\n";
+public:
+    MarsSimulation()
+        : window(sf::VideoMode({static_cast<unsigned int>(WINDOW_WIDTH_PIXELS),
+                                static_cast<unsigned int>(WINDOW_HEIGHT_PIXELS)}),
+                 "Mars Rover: Multi-Site Navigation & Excavation Planning"),
+          rover(420.0f),
+          hud(font),
+          isAutoMode(false),
+          isPaused(false),
+          showQuadTree(false),
+          showDijkstra(false),
+          missionTime(0.0f),
+          drillAnimationTimer(0.0f),
+          isDrilling(false)
+    {
+        window.setFramerateLimit(60);
+        loadSystemFont();
+
+        // obstacle indexing into quadtree
+        for (int r = 0; r < TOTAL_ROWS; ++r) {
+            for (int c = 0; c < TOTAL_COLUMNS; ++c) {
+                if (terrainGrid.getTerrainType(r, c) == TerrainType::OBSTACLE) {
+                    spatialTree.insert(Point2D(r, c), "OBSTACLE");
+                }
+            }
+        }
+
+        initCandidateSites();
+        populateTreesAndHeap();
+
+        currentKnapsackPlan = KnapsackOptimizer::optimizeSiteSelection(
+            candidateSites, terrainGrid, rover.getPosition(), static_cast<int>(rover.getBattery())
+        );
+        rover.setPlannedTour(currentKnapsackPlan.selectedSiteIds);
+
+        planNextTarget();
+        rover.setStatus(RoverState::WAITING_IDLE);
+
+        std::cout << "[System] Ready. Manual control active. Use Arrow keys to move.\n";
+    }
+
+    void run() {
+        while (window.isOpen()) {
+            float dt = frameClock.restart().asSeconds();
+            handleEvents();
+            update(dt);
+            render();
+        }
+        std::cout << "[Mission] Simulation closed.\n";
+    }
+};
+
+int main() {
+    std::cout << "========================================================\n"
+              << " SMART MARS ROVER: MULTI-SITE NAVIGATION & EXCAVATION\n"
+              << " Jaypee Institute of Information Technology - B.Tech III\n"
+              << "========================================================\n";
+
+    srand(static_cast<unsigned int>(time(nullptr)));
+
+    MarsSimulation simulation;
+    simulation.run();
+
     return 0;
 }

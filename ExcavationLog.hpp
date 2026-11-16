@@ -15,7 +15,7 @@ struct ExcavationRecord {
     float offsetCol;
     float predictedDepthCm;
     float sampleYieldGrams;
-    std::string outcomeStatus; // "SUCCESS (ORGANIC/CLAY DETECTED)", "SUCCESS (BASALT CORE)", etc.
+    std::string outcomeStatus;
     float batterySpent;
     float missionTimeSeconds;
 
@@ -37,10 +37,7 @@ struct ExcavationRecord {
           missionTimeSeconds(time), prev(nullptr), next(nullptr) {}
 };
 
-/**
- * @brief Custom Doubly Linked List for recording every excavation operation permanently.
- * Enables forward and backward traversal through mission geological logs.
- */
+// custom doubly linked list logging every core drilling operation
 class ExcavationLog {
 private:
     ExcavationRecord* head;

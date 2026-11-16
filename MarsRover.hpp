@@ -3,17 +3,11 @@
 
 #include "Types.hpp"
 #include "MarsElevationData.hpp"
-#include "QuadTree.hpp"
-#include "NeuralNetwork.hpp"
-#include "ExcavationLog.hpp"
-#include <deque>
 #include <vector>
 #include <string>
 #include <iostream>
 
-/**
- * @brief Autonomous Mars Rover Vehicle with Battery Subsystem, Smooth Motion, and Mission Executive.
- */
+// rover vehicle with battery state, motion physics, and breadcrumb trail
 class MarsRoverVehicle {
 private:
     int currentRowPosition;
@@ -23,40 +17,37 @@ private:
 
     std::vector<Point2D> currentPlannedPath;
     int currentPathStepIndex;
-    std::deque<Point2D> movementTrail;
+
+    // circular buffer for movement trail
+    Point2D trailBuffer[MAXIMUM_TRAIL_LENGTH];
+    int trailStart;
+    int trailCount;
 
     int distanceToNearestObstacle;
     RoverState currentStatus;
     int totalNumberOfMovesMade;
 
-    // Enhanced Battery System
     float batteryLevel;
     float maxBatteryLevel;
     float totalEnergyConsumed;
 
-    // Multi-Site Mission Plan
-    std::vector<int> plannedSiteTour; // List of site IDs in order
+    std::vector<int> plannedSiteTour;
     size_t currentTourIndex;
     int activeTargetSiteId;
 
-    // Excavation and Science Metrics
     float accumulatedScienceScore;
     float accumulatedSampleMassGrams;
-
-    // Drilling animation timer
-    float drillTimer;
-    bool isDrillingActive;
 
 public:
     MarsRoverVehicle(float initialBattery = 350.0f)
         : currentRowPosition(0), currentColumnPosition(0),
           drawingRowPosition(0.0f), drawingColumnPosition(0.0f),
-          currentPathStepIndex(0), distanceToNearestObstacle(99),
-          currentStatus(RoverState::WAITING_IDLE), totalNumberOfMovesMade(0),
-          batteryLevel(initialBattery), maxBatteryLevel(initialBattery),
-          totalEnergyConsumed(0.0f), currentTourIndex(0), activeTargetSiteId(-1),
-          accumulatedScienceScore(0.0f), accumulatedSampleMassGrams(0.0f),
-          drillTimer(0.0f), isDrillingActive(false) {}
+          currentPathStepIndex(0), trailStart(0), trailCount(0),
+          distanceToNearestObstacle(99), currentStatus(RoverState::WAITING_IDLE),
+          totalNumberOfMovesMade(0), batteryLevel(initialBattery),
+          maxBatteryLevel(initialBattery), totalEnergyConsumed(0.0f),
+          currentTourIndex(0), activeTargetSiteId(-1),
+          accumulatedScienceScore(0.0f), accumulatedSampleMassGrams(0.0f) {}
 
     void resetRover() {
         currentRowPosition = 0;
@@ -64,7 +55,8 @@ public:
         drawingRowPosition = 0.0f;
         drawingColumnPosition = 0.0f;
         currentPlannedPath.clear();
-        movementTrail.clear();
+        trailStart = 0;
+        trailCount = 0;
         currentPathStepIndex = 0;
         distanceToNearestObstacle = 99;
         currentStatus = RoverState::WAITING_IDLE;
@@ -76,8 +68,6 @@ public:
         activeTargetSiteId = -1;
         accumulatedScienceScore = 0.0f;
         accumulatedSampleMassGrams = 0.0f;
-        drillTimer = 0.0f;
-        isDrillingActive = false;
     }
 
     void assignNewPath(const std::vector<Point2D>& newPath) {
@@ -130,12 +120,11 @@ public:
             addCurrentPositionToTrail();
             Point2D nextPoint = currentPlannedPath[currentPathStepIndex];
 
-            // Calculate energy consumption for moving to next cell
             float energyCost = terrain.getEdgeTraversalEnergy(
                 Point2D(currentRowPosition, currentColumnPosition), nextPoint
             );
 
-            batteryLevel = std::max(0.0f, batteryLevel - energyCost);
+            batteryLevel = findMax(0.0f, batteryLevel - energyCost);
             totalEnergyConsumed += energyCost;
 
             currentRowPosition = nextPoint.getRow();
@@ -144,7 +133,6 @@ public:
             totalNumberOfMovesMade++;
 
             if (currentPathStepIndex >= totalPathLength) {
-                // Arrived at current target waypoint
                 return false;
             }
             return true;
@@ -167,7 +155,7 @@ public:
                 Point2D(currentRowPosition, currentColumnPosition), Point2D(nextR, nextC)
             );
 
-            batteryLevel = std::max(0.0f, batteryLevel - energyCost);
+            batteryLevel = findMax(0.0f, batteryLevel - energyCost);
             totalEnergyConsumed += energyCost;
 
             currentRowPosition = nextR;
@@ -178,13 +166,20 @@ public:
     }
 
     void deductExcavationBattery(float cost) {
-        batteryLevel = std::max(0.0f, batteryLevel - cost);
+        batteryLevel = findMax(0.0f, batteryLevel - cost);
         totalEnergyConsumed += cost;
     }
 
     void addScienceYield(float scienceVal, float sampleGrams) {
         accumulatedScienceScore += scienceVal;
         accumulatedSampleMassGrams += sampleGrams;
+    }
+
+    void rechargeBattery() {
+        batteryLevel = maxBatteryLevel;
+        if (currentStatus == RoverState::BATTERY_DEPLETED) {
+            currentStatus = RoverState::WAITING_IDLE;
+        }
     }
 
     void updateAnimation(float deltaTime) {
@@ -194,21 +189,20 @@ public:
     }
 
     void addCurrentPositionToTrail() {
-        movementTrail.push_back(Point2D(currentRowPosition, currentColumnPosition));
-        if (static_cast<int>(movementTrail.size()) > MAXIMUM_TRAIL_LENGTH) {
-            movementTrail.pop_front();
+        Point2D p(currentRowPosition, currentColumnPosition);
+        if (trailCount < MAXIMUM_TRAIL_LENGTH) {
+            trailBuffer[(trailStart + trailCount) % MAXIMUM_TRAIL_LENGTH] = p;
+            trailCount++;
+        } else {
+            trailBuffer[trailStart] = p;
+            trailStart = (trailStart + 1) % MAXIMUM_TRAIL_LENGTH;
         }
     }
 
-    // Proximity color based on distance to nearest obstacle
     sf::Color getRoverProximityColor() const {
-        if (distanceToNearestObstacle <= 1) {
-            return COLOR_DANGER;
-        } else if (distanceToNearestObstacle <= 3) {
-            return COLOR_WARNING;
-        } else {
-            return COLOR_SAFE;
-        }
+        if (distanceToNearestObstacle <= 1) return COLOR_DANGER;
+        if (distanceToNearestObstacle <= 3) return COLOR_WARNING;
+        return COLOR_SAFE;
     }
 
     std::string getStatusString() const {
@@ -225,7 +219,6 @@ public:
         }
     }
 
-    // Getters
     int getCurrentRow() const { return currentRowPosition; }
     int getCurrentColumn() const { return currentColumnPosition; }
     Point2D getPosition() const { return Point2D(currentRowPosition, currentColumnPosition); }
@@ -233,7 +226,15 @@ public:
     float getDrawingColumn() const { return drawingColumnPosition; }
     const std::vector<Point2D>& getCurrentPath() const { return currentPlannedPath; }
     int getPathStepIndex() const { return currentPathStepIndex; }
-    const std::deque<Point2D>& getTrail() const { return movementTrail; }
+
+    std::vector<Point2D> getTrail() const {
+        std::vector<Point2D> res;
+        res.reserve(trailCount);
+        for (int i = 0; i < trailCount; ++i) {
+            res.push_back(trailBuffer[(trailStart + i) % MAXIMUM_TRAIL_LENGTH]);
+        }
+        return res;
+    }
 
     int getObstacleDistance() const { return distanceToNearestObstacle; }
     void setObstacleDistance(int d) { distanceToNearestObstacle = d; }

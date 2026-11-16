@@ -4,11 +4,8 @@
 #include "Types.hpp"
 #include "MarsElevationData.hpp"
 #include <vector>
-#include <queue>
-#include <cmath>
 #include <chrono>
-#include <climits>
-#include <algorithm>
+#include <cmath>
 #include <iostream>
 
 struct PathResult {
@@ -26,36 +23,87 @@ struct PathResult {
 struct PathNode {
     int row;
     int col;
-    float gCost; // Actual cost from start to current
-    float fCost; // gCost + hCost (for A*) or gCost (for Dijkstra)
+    float gCost; // cost from start to here
+    float fCost; // gCost + heuristic
     PathNode* parent;
 
     PathNode(int r, int c, float g, float f, PathNode* p = nullptr)
         : row(r), col(c), gCost(g), fCost(f), parent(p) {}
 };
 
-struct PathNodeComparator {
-    bool operator()(const PathNode* a, const PathNode* b) const {
-        return a->fCost > b->fCost; // Min-heap behavior
+// simple min-heap for pathfinding nodes ordered by lowest fCost
+class PathMinHeap {
+private:
+    PathNode* heap[TOTAL_ROWS * TOTAL_COLUMNS * 4];
+    int sizeCount;
+
+    void bubbleUp(int idx) {
+        while (idx > 0) {
+            int p = (idx - 1) / 2;
+            if (heap[idx]->fCost < heap[p]->fCost) {
+                customSwap(heap[idx], heap[p]);
+                idx = p;
+            } else {
+                break;
+            }
+        }
+    }
+
+    void bubbleDown(int idx) {
+        while (2 * idx + 1 < sizeCount) {
+            int left = 2 * idx + 1;
+            int right = 2 * idx + 2;
+            int smallest = idx;
+
+            if (left < sizeCount && heap[left]->fCost < heap[smallest]->fCost) {
+                smallest = left;
+            }
+            if (right < sizeCount && heap[right]->fCost < heap[smallest]->fCost) {
+                smallest = right;
+            }
+            if (smallest != idx) {
+                customSwap(heap[idx], heap[smallest]);
+                idx = smallest;
+            } else {
+                break;
+            }
+        }
+    }
+
+public:
+    PathMinHeap() : sizeCount(0) {}
+
+    void push(PathNode* node) {
+        heap[sizeCount] = node;
+        bubbleUp(sizeCount);
+        sizeCount++;
+    }
+
+    PathNode* top() const {
+        return heap[0];
+    }
+
+    void pop() {
+        if (sizeCount > 0) {
+            heap[0] = heap[sizeCount - 1];
+            sizeCount--;
+            if (sizeCount > 0) bubbleDown(0);
+        }
+    }
+
+    bool empty() const {
+        return sizeCount == 0;
     }
 };
 
-/**
- * @brief Autonomous Navigation System implementing both A* and Dijkstra's algorithms.
- * Allows empirical validation that heuristic-guided A* matches Dijkstra's true optimal path
- * while exploring substantially fewer grid nodes.
- */
+// pathfinding algorithms: a* and dijkstra baseline
 class NavigationSystem {
 public:
     static float calculateHeuristic(int r1, int c1, int r2, int c2) {
-        // Manhattan distance multiplied by minimum possible terrain traversal cost (1.0)
-        // Admissible heuristic: never overestimates true cost.
-        return static_cast<float>(std::abs(r1 - r2) + std::abs(c1 - c2)) * 1.0f;
+        // manhattan distance as admissible heuristic
+        return static_cast<float>(std::abs(r1 - r2) + std::abs(c1 - c2));
     }
 
-    /**
-     * @brief A* Heuristic-Guided Pathfinding on Weighted Terrain Graph.
-     */
     static PathResult findPathAStar(const MarsTerrainGrid& terrain, Point2D start, Point2D goal) {
         auto startTime = std::chrono::high_resolution_clock::now();
         PathResult result;
@@ -66,14 +114,20 @@ public:
             return result;
         }
 
-        std::vector<std::vector<float>> distanceTo(TOTAL_ROWS, std::vector<float>(TOTAL_COLUMNS, 1e9f));
-        std::vector<PathNode*> allocatedNodes;
+        float distanceTo[TOTAL_ROWS][TOTAL_COLUMNS];
+        for (int r = 0; r < TOTAL_ROWS; ++r) {
+            for (int c = 0; c < TOTAL_COLUMNS; ++c) {
+                distanceTo[r][c] = 1e9f;
+            }
+        }
 
-        std::priority_queue<PathNode*, std::vector<PathNode*>, PathNodeComparator> openQueue;
+        PathNode* allocatedNodes[TOTAL_ROWS * TOTAL_COLUMNS * 4];
+        int allocatedCount = 0;
 
+        PathMinHeap openQueue;
         float h0 = calculateHeuristic(start.getRow(), start.getColumn(), goal.getRow(), goal.getColumn());
         PathNode* startNode = new PathNode(start.getRow(), start.getColumn(), 0.0f, h0, nullptr);
-        allocatedNodes.push_back(startNode);
+        allocatedNodes[allocatedCount++] = startNode;
         openQueue.push(startNode);
         distanceTo[start.getRow()][start.getColumn()] = 0.0f;
 
@@ -112,7 +166,7 @@ public:
                         distanceTo[nr][nc] = newG;
                         float h = calculateHeuristic(nr, nc, goal.getRow(), goal.getColumn());
                         PathNode* neighbor = new PathNode(nr, nc, newG, newG + h, current);
-                        allocatedNodes.push_back(neighbor);
+                        allocatedNodes[allocatedCount++] = neighbor;
                         openQueue.push(neighbor);
                     }
                 }
@@ -132,22 +186,22 @@ public:
                 result.path.push_back(Point2D(curr->row, curr->col));
                 curr = curr->parent;
             }
-            std::reverse(result.path.begin(), result.path.end());
+            // reverse path to start -> goal
+            int pSize = static_cast<int>(result.path.size());
+            for (int i = 0; i < pSize / 2; ++i) {
+                customSwap(result.path[i], result.path[pSize - 1 - i]);
+            }
         } else {
             result.pathFound = false;
         }
 
-        // Cleanup memory
-        for (auto* node : allocatedNodes) {
-            delete node;
+        for (int i = 0; i < allocatedCount; ++i) {
+            delete allocatedNodes[i];
         }
 
         return result;
     }
 
-    /**
-     * @brief Exhaustive Baseline: Dijkstra's Algorithm (Heuristic = 0.0).
-     */
     static PathResult findPathDijkstra(const MarsTerrainGrid& terrain, Point2D start, Point2D goal) {
         auto startTime = std::chrono::high_resolution_clock::now();
         PathResult result;
@@ -158,13 +212,19 @@ public:
             return result;
         }
 
-        std::vector<std::vector<float>> distanceTo(TOTAL_ROWS, std::vector<float>(TOTAL_COLUMNS, 1e9f));
-        std::vector<PathNode*> allocatedNodes;
+        float distanceTo[TOTAL_ROWS][TOTAL_COLUMNS];
+        for (int r = 0; r < TOTAL_ROWS; ++r) {
+            for (int c = 0; c < TOTAL_COLUMNS; ++c) {
+                distanceTo[r][c] = 1e9f;
+            }
+        }
 
-        std::priority_queue<PathNode*, std::vector<PathNode*>, PathNodeComparator> openQueue;
+        PathNode* allocatedNodes[TOTAL_ROWS * TOTAL_COLUMNS * 4];
+        int allocatedCount = 0;
 
+        PathMinHeap openQueue;
         PathNode* startNode = new PathNode(start.getRow(), start.getColumn(), 0.0f, 0.0f, nullptr);
-        allocatedNodes.push_back(startNode);
+        allocatedNodes[allocatedCount++] = startNode;
         openQueue.push(startNode);
         distanceTo[start.getRow()][start.getColumn()] = 0.0f;
 
@@ -201,9 +261,8 @@ public:
 
                     if (newG < distanceTo[nr][nc]) {
                         distanceTo[nr][nc] = newG;
-                        // For Dijkstra, fCost = gCost (no heuristic)
                         PathNode* neighbor = new PathNode(nr, nc, newG, newG, current);
-                        allocatedNodes.push_back(neighbor);
+                        allocatedNodes[allocatedCount++] = neighbor;
                         openQueue.push(neighbor);
                     }
                 }
@@ -223,14 +282,16 @@ public:
                 result.path.push_back(Point2D(curr->row, curr->col));
                 curr = curr->parent;
             }
-            std::reverse(result.path.begin(), result.path.end());
+            int pSize = static_cast<int>(result.path.size());
+            for (int i = 0; i < pSize / 2; ++i) {
+                customSwap(result.path[i], result.path[pSize - 1 - i]);
+            }
         } else {
             result.pathFound = false;
         }
 
-        // Cleanup memory
-        for (auto* node : allocatedNodes) {
-            delete node;
+        for (int i = 0; i < allocatedCount; ++i) {
+            delete allocatedNodes[i];
         }
 
         return result;

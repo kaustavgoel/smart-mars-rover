@@ -2,29 +2,27 @@
 #define QUADTREE_HPP
 
 #include "Types.hpp"
+#include <string>
 #include <vector>
-#include <memory>
 #include <cmath>
-#include <climits>
-#include <iostream>
 
 struct SpatialItem {
     Point2D coord;
-    std::string type; // "OBSTACLE", "SITE", "ROVER"
-    int id;           // Site ID or index
+    std::string type; // "OBSTACLE", "SITE"
+    int id;
 
     SpatialItem() : coord(0, 0), type(""), id(0) {}
     SpatialItem(Point2D c, const std::string& t, int i = 0) : coord(c), type(t), id(i) {}
 };
 
 struct BoundingBox {
-    float x;      // Column offset in grid space
-    float y;      // Row offset in grid space
-    float width;  // Columns wide
-    float height; // Rows high
+    float x;
+    float y;
+    float width;
+    float height;
 
     BoundingBox() : x(0), y(0), width(0), height(0) {}
-    BoundingBox(float _x, float _y, float _w, float _h) : x(_x), y(_y), width(_w), height(_h) {}
+    BoundingBox(float bx, float by, float bw, float bh) : x(bx), y(by), width(bw), height(bh) {}
 
     bool contains(Point2D p) const {
         return (p.getColumn() >= x && p.getColumn() < x + width &&
@@ -39,15 +37,12 @@ struct BoundingBox {
     }
 };
 
-/**
- * @brief Custom 2D QuadTree spatial index for fast O(log N) proximity and range queries.
- * Eliminates exhaustive O(N) map scans when checking hazards and nearest candidate sites.
- */
+// single node in quadtree holding up to 4 items before splitting
 class QuadTreeNode {
 public:
     BoundingBox boundary;
-    int capacity;
-    std::vector<SpatialItem> items;
+    SpatialItem items[4];
+    int itemCount;
     bool isDivided;
 
     QuadTreeNode* northWest;
@@ -55,8 +50,8 @@ public:
     QuadTreeNode* southWest;
     QuadTreeNode* southEast;
 
-    QuadTreeNode(BoundingBox b, int cap = 4)
-        : boundary(b), capacity(cap), isDivided(false),
+    QuadTreeNode(BoundingBox b)
+        : boundary(b), itemCount(0), isDivided(false),
           northWest(nullptr), northEast(nullptr),
           southWest(nullptr), southEast(nullptr) {}
 
@@ -73,19 +68,18 @@ public:
         float x = boundary.x;
         float y = boundary.y;
 
-        northWest = new QuadTreeNode(BoundingBox(x, y, halfW, halfH), capacity);
-        northEast = new QuadTreeNode(BoundingBox(x + halfW, y, halfW, halfH), capacity);
-        southWest = new QuadTreeNode(BoundingBox(x, y + halfH, halfW, halfH), capacity);
-        southEast = new QuadTreeNode(BoundingBox(x + halfW, y + halfH, halfW, halfH), capacity);
+        northWest = new QuadTreeNode(BoundingBox(x, y, halfW, halfH));
+        northEast = new QuadTreeNode(BoundingBox(x + halfW, y, halfW, halfH));
+        southWest = new QuadTreeNode(BoundingBox(x, y + halfH, halfW, halfH));
+        southEast = new QuadTreeNode(BoundingBox(x + halfW, y + halfH, halfW, halfH));
 
         isDivided = true;
 
-        // Re-distribute existing items into appropriate quadrants
-        std::vector<SpatialItem> currentItems = items;
-        items.clear();
-        for (const auto& item : currentItems) {
-            insert(item);
+        // redistribute current items to children
+        for (int i = 0; i < itemCount; ++i) {
+            insert(items[i]);
         }
+        itemCount = 0;
     }
 
     bool insert(const SpatialItem& item) {
@@ -93,8 +87,8 @@ public:
             return false;
         }
 
-        if (items.size() < static_cast<size_t>(capacity) && !isDivided) {
-            items.push_back(item);
+        if (itemCount < 4 && !isDivided) {
+            items[itemCount++] = item;
             return true;
         }
 
@@ -106,18 +100,15 @@ public:
         if (northEast->insert(item)) return true;
         if (southWest->insert(item)) return true;
         if (southEast->insert(item)) return true;
-
         return false;
     }
 
     void queryRange(const BoundingBox& range, std::vector<SpatialItem>& found) const {
-        if (!boundary.intersects(range)) {
-            return;
-        }
+        if (!boundary.intersects(range)) return;
 
-        for (const auto& item : items) {
-            if (range.contains(item.coord)) {
-                found.push_back(item);
+        for (int i = 0; i < itemCount; ++i) {
+            if (range.contains(items[i].coord)) {
+                found.push_back(items[i]);
             }
         }
 
@@ -140,19 +131,25 @@ public:
     }
 };
 
+// 2d quadtree for fast spatial range and proximity queries
 class QuadTree {
 private:
-    std::unique_ptr<QuadTreeNode> root;
+    QuadTreeNode* root;
     int totalItemsIndexed;
 
 public:
-    QuadTree() : totalItemsIndexed(0) {
+    QuadTree() : root(nullptr), totalItemsIndexed(0) {
         clear();
     }
 
+    ~QuadTree() {
+        delete root;
+    }
+
     void clear() {
+        delete root;
         BoundingBox universe(0.0f, 0.0f, static_cast<float>(TOTAL_COLUMNS), static_cast<float>(TOTAL_ROWS));
-        root = std::make_unique<QuadTreeNode>(universe, 4);
+        root = new QuadTreeNode(universe);
         totalItemsIndexed = 0;
     }
 
@@ -167,7 +164,7 @@ public:
     std::vector<SpatialItem> queryRange(float x, float y, float w, float h) const {
         std::vector<SpatialItem> results;
         BoundingBox range(x, y, w, h);
-        root->queryRange(range, results);
+        if (root) root->queryRange(range, results);
         return results;
     }
 
@@ -186,9 +183,6 @@ public:
         return filtered;
     }
 
-    /**
-     * @brief High-efficiency nearest obstacle lookup using QuadTree expanding search box.
-     */
     int findDistanceToNearestObstacle(Point2D roverPos, float maxSearchRadius = 6.0f) const {
         float searchRad = 2.0f;
         while (searchRad <= maxSearchRadius + 2.0f) {
@@ -205,10 +199,7 @@ public:
                     }
                 }
             }
-
-            if (foundObstacle) {
-                return minManhattan;
-            }
+            if (foundObstacle) return minManhattan;
             searchRad += 2.0f;
         }
         return 99;
@@ -216,9 +207,7 @@ public:
 
     std::vector<BoundingBox> getAllBoundingBoxes() const {
         std::vector<BoundingBox> boxes;
-        if (root) {
-            root->collectAllBoxes(boxes);
-        }
+        if (root) root->collectAllBoxes(boxes);
         return boxes;
     }
 
