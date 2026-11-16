@@ -1,0 +1,16 @@
+# Binaries and build outputs
+smart_mars_rover
+smart_mars_rover_single
+test_suite
+*.o
+*.dSYM/
+*.out
+
+# Diagnostic and temp test outputs
+test_results.txt
+test_output.txt
+
+# macOS & Editor caches
+.DS_Store
+.vscode/
+.idea/
