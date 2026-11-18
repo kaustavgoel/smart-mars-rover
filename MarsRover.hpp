@@ -3,7 +3,6 @@
 
 #include "Types.hpp"
 #include "MarsElevationData.hpp"
-#include <vector>
 #include <string>
 #include <iostream>
 
@@ -15,7 +14,7 @@ private:
     float drawingRowPosition;
     float drawingColumnPosition;
 
-    std::vector<Point2D> currentPlannedPath;
+    CustomVector<Point2D> currentPlannedPath;
     int currentPathStepIndex;
 
     // circular buffer for movement trail
@@ -31,7 +30,7 @@ private:
     float maxBatteryLevel;
     float totalEnergyConsumed;
 
-    std::vector<int> plannedSiteTour;
+    CustomVector<int> plannedSiteTour;
     size_t currentTourIndex;
     int activeTargetSiteId;
 
@@ -70,7 +69,7 @@ public:
         accumulatedSampleMassGrams = 0.0f;
     }
 
-    void assignNewPath(const std::vector<Point2D>& newPath) {
+    void assignNewPath(const CustomVector<Point2D>& newPath) {
         currentPlannedPath = newPath;
         currentPathStepIndex = 0;
         if (newPath.empty()) {
@@ -80,7 +79,7 @@ public:
         }
     }
 
-    void setPlannedTour(const std::vector<int>& tour) {
+    void setPlannedTour(const CustomVector<int>& tour) {
         plannedSiteTour = tour;
         currentTourIndex = 0;
         if (!plannedSiteTour.empty()) {
@@ -224,11 +223,11 @@ public:
     Point2D getPosition() const { return Point2D(currentRowPosition, currentColumnPosition); }
     float getDrawingRow() const { return drawingRowPosition; }
     float getDrawingColumn() const { return drawingColumnPosition; }
-    const std::vector<Point2D>& getCurrentPath() const { return currentPlannedPath; }
+    const CustomVector<Point2D>& getCurrentPath() const { return currentPlannedPath; }
     int getPathStepIndex() const { return currentPathStepIndex; }
 
-    std::vector<Point2D> getTrail() const {
-        std::vector<Point2D> res;
+    CustomVector<Point2D> getTrail() const {
+        CustomVector<Point2D> res;
         res.reserve(trailCount);
         for (int i = 0; i < trailCount; ++i) {
             res.push_back(trailBuffer[(trailStart + i) % MAXIMUM_TRAIL_LENGTH]);
@@ -250,7 +249,7 @@ public:
     int getActiveTargetSiteId() const { return activeTargetSiteId; }
     void setActiveTargetSiteId(int id) { activeTargetSiteId = id; }
     size_t getCurrentTourIndex() const { return currentTourIndex; }
-    const std::vector<int>& getPlannedTour() const { return plannedSiteTour; }
+    const CustomVector<int>& getPlannedTour() const { return plannedSiteTour; }
 
     float getAccumulatedScience() const { return accumulatedScienceScore; }
     float getAccumulatedSampleMass() const { return accumulatedSampleMassGrams; }

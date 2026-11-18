@@ -4,6 +4,7 @@
 #include <SFML/Graphics.hpp>
 #include <string>
 #include <cmath>
+#include "CustomVector.hpp"
 
 // grid dimensions and display sizes
 constexpr int TOTAL_ROWS = 20;

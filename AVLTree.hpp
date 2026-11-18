@@ -3,7 +3,6 @@
 
 #include "Types.hpp"
 #include <iostream>
-#include <vector>
 
 struct AVLNode {
   int key; // siteId
@@ -105,7 +104,7 @@ private:
     return searchNode(node->right, key);
   }
 
-  void inorder(AVLNode *node, std::vector<SiteData> &result) const {
+  void inorder(AVLNode *node, CustomVector<SiteData> &result) const {
     if (node != nullptr) {
       inorder(node->left, result);
       result.push_back(node->data);
@@ -138,8 +137,8 @@ public:
     return (res != nullptr) ? &(res->data) : nullptr;
   }
 
-  std::vector<SiteData> getAllSitesInOrder() const {
-    std::vector<SiteData> result;
+  CustomVector<SiteData> getAllSitesInOrder() const {
+    CustomVector<SiteData> result;
     inorder(root, result);
     return result;
   }

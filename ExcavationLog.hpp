@@ -3,7 +3,6 @@
 
 #include "Types.hpp"
 #include <string>
-#include <vector>
 #include <iostream>
 
 struct ExcavationRecord {
@@ -80,8 +79,8 @@ public:
     ExcavationRecord* getHead() const { return head; }
     ExcavationRecord* getTail() const { return tail; }
 
-    std::vector<ExcavationRecord> getRecentRecords(int maxCount = 4) const {
-        std::vector<ExcavationRecord> records;
+    CustomVector<ExcavationRecord> getRecentRecords(int maxCount = 4) const {
+        CustomVector<ExcavationRecord> records;
         ExcavationRecord* curr = tail;
         while (curr != nullptr && static_cast<int>(records.size()) < maxCount) {
             records.push_back(*curr);

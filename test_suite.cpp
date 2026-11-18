@@ -103,7 +103,7 @@ void testPathfindingAStarVsDijkstra() {
 void testKnapsackOptimizer() {
     std::cout << "[Test 6] Testing 0/1 Knapsack DP Multi-Site Tour Optimizer... ";
     MarsTerrainGrid terrain;
-    std::vector<SiteData> sites = {
+    CustomVector<SiteData> sites = {
         SiteData(1, "Site 1", Point2D(3, 4),   90.0f, 40.0f, 0, 0, 0, 0),
         SiteData(2, "Site 2", Point2D(15, 20), 85.0f, 50.0f, 0, 0, 0, 0),
         SiteData(3, "Site 3", Point2D(6, 8),   80.0f, 35.0f, 0, 0, 0, 0),

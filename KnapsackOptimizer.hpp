@@ -3,11 +3,10 @@
 
 #include "Types.hpp"
 #include "MarsElevationData.hpp"
-#include <vector>
 #include <iostream>
 
 struct KnapsackPlan {
-    std::vector<int> selectedSiteIds;
+    CustomVector<int> selectedSiteIds;
     float totalExpectedScienceValue;
     float totalEnergyRequired;
     int batteryBudgetUsed;
@@ -22,7 +21,7 @@ struct KnapsackPlan {
 class KnapsackOptimizer {
 public:
     static KnapsackPlan optimizeSiteSelection(
-        const std::vector<SiteData>& candidateSites,
+        const CustomVector<SiteData>& candidateSites,
         const MarsTerrainGrid& terrain,
         Point2D roverStartPos,
         int batteryBudget

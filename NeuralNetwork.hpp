@@ -4,7 +4,6 @@
 #include "Types.hpp"
 #include <iostream>
 #include <cmath>
-#include <vector>
 
 // simple vector class for linear algebra without external libraries
 class MathVector {
@@ -72,8 +71,8 @@ public:
         return sum;
     }
 
-    std::vector<float> toVector() const {
-        std::vector<float> v(len);
+    CustomVector<float> toVector() const {
+        CustomVector<float> v(len);
         for (size_t i = 0; i < len; ++i) v[i] = data[i];
         return v;
     }
@@ -157,8 +156,8 @@ struct ExcavationPrediction {
     float offsetRow;
     float offsetCol;
     float predictedDepthCm;
-    std::vector<float> inputFeatures;
-    std::vector<float> hiddenActivations;
+    CustomVector<float> inputFeatures;
+    CustomVector<float> hiddenActivations;
 };
 
 // 3-layer neural network (4 -> 6 -> 3) predicting drill offset and depth

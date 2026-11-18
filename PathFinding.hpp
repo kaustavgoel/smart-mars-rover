@@ -3,13 +3,12 @@
 
 #include "Types.hpp"
 #include "MarsElevationData.hpp"
-#include <vector>
 #include <chrono>
 #include <cmath>
 #include <iostream>
 
 struct PathResult {
-    std::vector<Point2D> path;
+    CustomVector<Point2D> path;
     float totalEnergyCost;
     int nodesExplored;
     long long executionTimeMicroseconds;

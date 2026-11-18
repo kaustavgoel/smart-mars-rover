@@ -13,7 +13,6 @@
 
 #include <SFML/Graphics.hpp>
 #include <iostream>
-#include <vector>
 #include <ctime>
 #include <cstdlib>
 
@@ -25,7 +24,7 @@ private:
 
     MarsTerrainGrid terrainGrid;
     QuadTree spatialTree;
-    std::vector<SiteData> candidateSites;
+    CustomVector<SiteData> candidateSites;
 
     AVLTree siteAVL;
     MaxHeap siteHeap;

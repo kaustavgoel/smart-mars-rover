@@ -3,7 +3,6 @@
 
 #include "Types.hpp"
 #include <string>
-#include <vector>
 #include <cmath>
 
 struct SpatialItem {
@@ -103,7 +102,7 @@ public:
         return false;
     }
 
-    void queryRange(const BoundingBox& range, std::vector<SpatialItem>& found) const {
+    void queryRange(const BoundingBox& range, CustomVector<SpatialItem>& found) const {
         if (!boundary.intersects(range)) return;
 
         for (int i = 0; i < itemCount; ++i) {
@@ -120,7 +119,7 @@ public:
         }
     }
 
-    void collectAllBoxes(std::vector<BoundingBox>& boxes) const {
+    void collectAllBoxes(CustomVector<BoundingBox>& boxes) const {
         boxes.push_back(boundary);
         if (isDivided) {
             northWest->collectAllBoxes(boxes);
@@ -161,20 +160,20 @@ public:
         return false;
     }
 
-    std::vector<SpatialItem> queryRange(float x, float y, float w, float h) const {
-        std::vector<SpatialItem> results;
+    CustomVector<SpatialItem> queryRange(float x, float y, float w, float h) const {
+        CustomVector<SpatialItem> results;
         BoundingBox range(x, y, w, h);
         if (root) root->queryRange(range, results);
         return results;
     }
 
-    std::vector<SpatialItem> queryRadius(Point2D center, float radius) const {
+    CustomVector<SpatialItem> queryRadius(Point2D center, float radius) const {
         float x = static_cast<float>(center.getColumn()) - radius;
         float y = static_cast<float>(center.getRow()) - radius;
         float size = radius * 2.0f;
-        std::vector<SpatialItem> candidates = queryRange(x, y, size, size);
+        CustomVector<SpatialItem> candidates = queryRange(x, y, size, size);
 
-        std::vector<SpatialItem> filtered;
+        CustomVector<SpatialItem> filtered;
         for (const auto& item : candidates) {
             if (center.distanceTo(item.coord) <= radius) {
                 filtered.push_back(item);
@@ -205,8 +204,8 @@ public:
         return 99;
     }
 
-    std::vector<BoundingBox> getAllBoundingBoxes() const {
-        std::vector<BoundingBox> boxes;
+    CustomVector<BoundingBox> getAllBoundingBoxes() const {
+        CustomVector<BoundingBox> boxes;
         if (root) root->collectAllBoxes(boxes);
         return boxes;
     }
