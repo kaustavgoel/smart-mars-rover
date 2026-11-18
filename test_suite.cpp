@@ -48,10 +48,10 @@ void testMaxHeap() {
 
     assert(!heap.isEmpty());
     assert(heap.size() == 3);
-    assert(heap.peekMax().siteId == 2); // 95.0f is max
+    assert(heap.peekMax().siteId == 2);
     SiteData max1 = heap.extractMax();
     assert(max1.siteId == 2);
-    assert(heap.peekMax().siteId == 3); // 75.0f is next
+    assert(heap.peekMax().siteId == 3);
     std::cout << "PASSED\n";
 }
 
@@ -65,7 +65,7 @@ void testAVLTree() {
     avl.insert(SiteData(103, "Site 103", Point2D(5, 5), 75.0f, 28.0f, 0, 0, 0, 0));
 
     assert(avl.size() == 5);
-    assert(avl.getTreeHeight() <= 3); // Balanced!
+    assert(avl.getTreeHeight() <= 3);
 
     SiteData* found = avl.search(103);
     assert(found != nullptr);
@@ -91,9 +91,9 @@ void testPathfindingAStarVsDijkstra() {
 
     assert(aStar.pathFound);
     assert(dijkstra.pathFound);
-    // Verify costs match within float precision (Optimality proof)
+
     assert(std::abs(aStar.totalEnergyCost - dijkstra.totalEnergyCost) < 0.1f);
-    // A* must explore fewer or equal nodes compared to exhaustive Dijkstra
+
     assert(aStar.nodesExplored <= dijkstra.nodesExplored);
     std::cout << "PASSED (A* Nodes: " << aStar.nodesExplored
               << " vs Dijkstra: " << dijkstra.nodesExplored << ", Cost: "
@@ -127,19 +127,19 @@ void testDecisionTree() {
     SiteData goodSite(101, "Delta", Point2D(4, 8), 90.0f, 40.0f, -2400.0f, 10.0f, 8.0f, 0.85f);
     SiteData steepSite(102, "Cliff", Point2D(10, 10), 90.0f, 40.0f, -2100.0f, 45.0f, 35.0f, 0.85f);
 
-    // Test with ample battery
+
     DecisionResult r1 = dt.evaluateSiteCommitment(300.0f, 50.0f, goodSite, terrain, qt);
     assert(r1.approved);
 
-    // Test with low battery (should skip or abort)
+
     DecisionResult r2 = dt.evaluateSiteCommitment(30.0f, 50.0f, goodSite, terrain, qt);
     assert(!r2.approved);
 
-    // Test with hazardous steep slope
+
     DecisionResult r3 = dt.evaluateSiteCommitment(300.0f, 50.0f, steepSite, terrain, qt);
     assert(!r3.approved);
 
-    // Test excavation strategy
+
     DecisionResult r4 = dt.evaluateExcavationStrategy(200.0f, goodSite, 10.0f);
     assert(r4.outcome == DecisionOutcome::PERFORM_DEEP_DRILL);
     std::cout << "PASSED\n";
@@ -177,7 +177,7 @@ void testExcavationLogDLL() {
 
     auto recent = log.getRecentRecords(2);
     assert(recent.size() == 2);
-    assert(recent[0].siteId == 102); // Latest first
+    assert(recent[0].siteId == 102);
     assert(recent[1].siteId == 101);
     std::cout << "PASSED\n";
 }

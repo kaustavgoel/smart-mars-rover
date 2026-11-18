@@ -32,7 +32,7 @@ struct DecisionResult {
           approved(true) {}
 };
 
-// decision tree to evaluate whether to commit, skip, or drill at a site
+
 class RoverDecisionTree {
 private:
     float safetyReserveBattery;
@@ -51,7 +51,7 @@ public:
     ) {
         DecisionResult res;
 
-        // check if enough battery remains
+
         float totalNeeded = estimatedTripCost + targetSite.excavationEnergy + safetyReserveBattery;
         if (currentBattery < totalNeeded) {
             if (currentBattery < safetyReserveBattery + 10.0f) {
@@ -72,7 +72,7 @@ public:
             }
         }
 
-        // check terrain hazards and nearby obstacles
+
         int nearestObstacleDist = spatialTree.findDistanceToNearestObstacle(targetSite.coord, 4.0f);
         float actualSlope = terrain.getSlope(targetSite.coord.getRow(), targetSite.coord.getColumn());
         if (targetSite.slope > maxPermissibleSlope || actualSlope > maxPermissibleSlope || nearestObstacleDist <= 0) {
@@ -84,7 +84,7 @@ public:
             return res;
         }
 
-        // check science return ratio
+
         float efficiency = targetSite.scienceValue / (estimatedTripCost + targetSite.excavationEnergy + 0.1f);
         if (efficiency < 0.15f) {
             res.outcome = DecisionOutcome::SKIP_LOW_SCIENCE_RETURN;
@@ -95,7 +95,7 @@ public:
             return res;
         }
 
-        // all checks passed
+
         res.outcome = DecisionOutcome::PROCEED_TO_SITE;
         res.decisionTitle = "COMMIT & TRAVEL";
         res.rationale = "Site " + targetSite.name + " approved for travel and science extraction";
@@ -104,7 +104,7 @@ public:
         return res;
     }
 
-    // select drilling technique based on local conditions
+
     DecisionResult evaluateExcavationStrategy(
         float currentBattery,
         const SiteData& site,
@@ -145,4 +145,4 @@ public:
     }
 };
 
-#endif // DECISION_TREE_HPP
+#endif

@@ -16,7 +16,7 @@
 #include <ctime>
 #include <cstdlib>
 
-// main simulation class tying all subsystems together
+
 class MarsSimulation {
 private:
     sf::RenderWindow window;
@@ -34,7 +34,7 @@ private:
     ExcavationLog excavationLog;
     UserInterfaceHUD hud;
 
-    // runtime flags
+
     bool isAutoMode;
     bool isPaused;
     bool showQuadTree;
@@ -224,7 +224,7 @@ private:
         missionTime += deltaTime;
         rover.updateAnimation(deltaTime);
 
-        // proximity sensor
+
         int nearestObs = spatialTree.findDistanceToNearestObstacle(rover.getPosition(), 6.0f);
         rover.setObstacleDistance(nearestObs);
 
@@ -316,7 +316,7 @@ private:
     void render() {
         window.clear(COLOR_BACKGROUND);
 
-        // draw terrain cells
+
         for (int r = 0; r < TOTAL_ROWS; ++r) {
             for (int c = 0; c < TOTAL_COLUMNS; ++c) {
                 float px = static_cast<float>(c * CELL_SIZE_PIXELS);
@@ -337,7 +337,7 @@ private:
             }
         }
 
-        // draw quadtree boxes
+
         if (showQuadTree) {
             auto boxes = spatialTree.getAllBoundingBoxes();
             for (const auto& b : boxes) {
@@ -350,7 +350,7 @@ private:
             }
         }
 
-        // dijkstra baseline path
+
         if (showDijkstra && currentDijkstraResult.pathFound) {
             for (const auto& pt : currentDijkstraResult.path) {
                 sf::CircleShape dot(3.0f);
@@ -361,7 +361,7 @@ private:
             }
         }
 
-        // a* planned route
+
         const auto& plannedPath = rover.getCurrentPath();
         int pathLen = static_cast<int>(plannedPath.size());
         for (int i = 0; i < pathLen; ++i) {
@@ -383,7 +383,7 @@ private:
             }
         }
 
-        // rover trail
+
         auto trail = rover.getTrail();
         int trailLen = static_cast<int>(trail.size());
         for (int i = 0; i < trailLen; ++i) {
@@ -398,7 +398,7 @@ private:
             window.draw(trailCircle);
         }
 
-        // candidate sites
+
         float pulse = 0.5f + 0.5f * std::sin(missionTime * 3.5f);
         auto allSites = siteAVL.getAllSitesInOrder();
         for (const auto& site : allSites) {
@@ -436,7 +436,7 @@ private:
             window.draw(label);
         }
 
-        // rover body
+
         {
             float roverCenterX = rover.getDrawingColumn() * CELL_SIZE_PIXELS + CELL_SIZE_PIXELS / 2.0f;
             float roverCenterY = rover.getDrawingRow() * CELL_SIZE_PIXELS + CELL_SIZE_PIXELS / 2.0f;
@@ -471,7 +471,7 @@ private:
             window.draw(cameraEye);
         }
 
-        // drill animation
+
         if (isDrilling) {
             float drillR = (drillAnimationTimer / 1.6f) * (CELL_SIZE_PIXELS * 1.8f);
             float drillX = rover.getCurrentColumn() * CELL_SIZE_PIXELS + CELL_SIZE_PIXELS / 2.0f;
@@ -517,7 +517,7 @@ public:
         window.setFramerateLimit(60);
         loadSystemFont();
 
-        // obstacle indexing into quadtree
+
         for (int r = 0; r < TOTAL_ROWS; ++r) {
             for (int c = 0; c < TOTAL_COLUMNS; ++c) {
                 if (terrainGrid.getTerrainType(r, c) == TerrainType::OBSTACLE) {

@@ -22,15 +22,15 @@ struct PathResult {
 struct PathNode {
     int row;
     int col;
-    float gCost; // cost from start to here
-    float fCost; // gCost + heuristic
+    float gCost;
+    float fCost;
     PathNode* parent;
 
     PathNode(int r, int c, float g, float f, PathNode* p = nullptr)
         : row(r), col(c), gCost(g), fCost(f), parent(p) {}
 };
 
-// simple min-heap for pathfinding nodes ordered by lowest fCost
+
 class PathMinHeap {
 private:
     PathNode* heap[TOTAL_ROWS * TOTAL_COLUMNS * 4];
@@ -95,11 +95,11 @@ public:
     }
 };
 
-// pathfinding algorithms: a* and dijkstra baseline
+
 class NavigationSystem {
 public:
     static float calculateHeuristic(int r1, int c1, int r2, int c2) {
-        // manhattan distance as admissible heuristic
+
         return static_cast<float>(std::abs(r1 - r2) + std::abs(c1 - c2));
     }
 
@@ -185,7 +185,7 @@ public:
                 result.path.push_back(Point2D(curr->row, curr->col));
                 curr = curr->parent;
             }
-            // reverse path to start -> goal
+
             int pSize = static_cast<int>(result.path.size());
             for (int i = 0; i < pSize / 2; ++i) {
                 customSwap(result.path[i], result.path[pSize - 1 - i]);
@@ -297,4 +297,4 @@ public:
     }
 };
 
-#endif // PATHFINDING_HPP
+#endif

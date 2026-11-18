@@ -17,7 +17,7 @@ struct KnapsackPlan {
           batteryBudgetUsed(0), batteryBudgetAvailable(0) {}
 };
 
-// 0/1 knapsack dynamic programming optimizer to pick best sites within battery limit
+
 class KnapsackOptimizer {
 public:
     static KnapsackPlan optimizeSiteSelection(
@@ -48,7 +48,7 @@ public:
             values[i] = static_cast<int>(std::round(candidateSites[i].scienceValue * 10.0f));
         }
 
-        // flat 1d array representing 2d dp table: (n + 1) x (batteryBudget + 1)
+
         int cols = batteryBudget + 1;
         int* dp = new int[(n + 1) * cols]();
 
@@ -67,7 +67,7 @@ public:
             }
         }
 
-        // backtrack to recover selected sites
+
         int remainingCap = batteryBudget;
         float accumulatedScience = 0.0f;
         float accumulatedEnergy = 0.0f;
@@ -82,7 +82,7 @@ public:
             }
         }
 
-        // reverse to preserve sequence order
+
         int sSize = static_cast<int>(plan.selectedSiteIds.size());
         for (int i = 0; i < sSize / 2; ++i) {
             customSwap(plan.selectedSiteIds[i], plan.selectedSiteIds[sSize - 1 - i]);
@@ -106,4 +106,4 @@ public:
     }
 };
 
-#endif // KNAPSACK_OPTIMIZER_HPP
+#endif

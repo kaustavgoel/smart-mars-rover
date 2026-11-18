@@ -15,7 +15,7 @@
 #include <iomanip>
 #include <string>
 
-// heads up display dashboard showing telemetry and algorithm states
+
 class UserInterfaceHUD {
 private:
     const sf::Font& font;
@@ -63,10 +63,10 @@ public:
         float totalW = static_cast<float>(WINDOW_WIDTH_PIXELS);
         float totalH = static_cast<float>(HUD_HEIGHT_PIXELS);
 
-        // hud panel background
+
         drawBox(window, 0.0f, yStart, totalW, totalH, COLOR_HUD_BG, COLOR_PANEL_BORDER, 2.0f);
 
-        // header line
+
         float headerY = yStart + 8.0f;
         sf::Text title = createText("MARS ROVER: MULTI-SITE SCIENCE & EXCAVATION", 12,
                                     COLOR_ACCENT, {16.0f, headerY}, sf::Text::Bold);
@@ -82,7 +82,7 @@ public:
             window.draw(pausedText);
         }
 
-        // 4 info columns
+
         float col1X = 16.0f;
         float col2X = 230.0f;
         float col3X = 450.0f;
@@ -90,7 +90,7 @@ public:
 
         float row1Y = headerY + 22.0f;
 
-        // row 1: status, gps, target, obstacle proximity
+
         drawLabel(window, "ROVER STATUS", rover.getStatusString(), col1X, row1Y, rover.getRoverProximityColor());
         drawLabel(window, "GPS POSITION",
                   "(" + std::to_string(rover.getCurrentRow()) + ", " +
@@ -110,7 +110,7 @@ public:
         std::string proxStr = (dist >= 99) ? "ALL CLEAR" : std::to_string(dist) + " cells";
         drawLabel(window, "OBSTACLE PROXIMITY", proxStr, col4X, row1Y, rover.getRoverProximityColor());
 
-        // row 2: battery, telemetry, priority heap / avl, decision tree & nn
+
         float row2Y = row1Y + 32.0f;
 
         float pct = rover.getBatteryPercentage();
@@ -121,7 +121,7 @@ public:
                                            : (pct > 25.0f ? COLOR_BATTERY_YELLOW : COLOR_BATTERY_RED);
         drawLabel(window, "BATTERY BUDGET", ssBat.str(), col1X, row2Y, batColor);
 
-        // battery progress bar
+
         float barW = 180.0f;
         float barH = 6.0f;
         drawBox(window, col1X, row2Y + 28.0f, barW, barH, sf::Color(30, 38, 50), sf::Color(55, 70, 95));
@@ -161,7 +161,7 @@ public:
         drawLabel(window, "DECISION & NN DIG", ssNN.str(), col4X, row2Y,
                   decision.approved ? COLOR_SAFE : COLOR_DANGER);
 
-        // row 3: knapsack tour and excavation log summary
+
         float row3Y = row2Y + 38.0f;
 
         std::string tourStr = "Tour: ";
@@ -190,7 +190,7 @@ public:
         sf::Text logText = createText(logStr, 11, COLOR_TEXT_MAIN, {col3X, row3Y});
         window.draw(logText);
 
-        // controls bar
+
         float controlsY = yStart + totalH - 22.0f;
         drawBox(window, 16.0f, controlsY - 4.0f, totalW - 32.0f, 1.0f, COLOR_PANEL_BORDER, COLOR_PANEL_BORDER);
 
@@ -203,4 +203,4 @@ public:
     }
 };
 
-#endif // HUD_HPP
+#endif

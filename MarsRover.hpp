@@ -6,7 +6,7 @@
 #include <string>
 #include <iostream>
 
-// rover vehicle with battery state, motion physics, and breadcrumb trail
+
 class MarsRoverVehicle {
 private:
     int currentRowPosition;
@@ -17,7 +17,7 @@ private:
     CustomVector<Point2D> currentPlannedPath;
     int currentPathStepIndex;
 
-    // circular buffer for movement trail
+
     Point2D trailBuffer[MAXIMUM_TRAIL_LENGTH];
     int trailStart;
     int trailCount;
@@ -256,4 +256,4 @@ public:
     int getTotalMoves() const { return totalNumberOfMovesMade; }
 };
 
-#endif // MARS_ROVER_HPP
+#endif

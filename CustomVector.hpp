@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <initializer_list>
 
-// Custom generic dynamic array replacing std::vector without using STL containers
+
 template <typename T>
 class CustomVector {
 private:
@@ -170,4 +170,4 @@ public:
     const T* end() const { return buffer + elementCount; }
 };
 
-#endif // CUSTOM_VECTOR_HPP
+#endif

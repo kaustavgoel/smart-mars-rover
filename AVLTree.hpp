@@ -5,7 +5,7 @@
 #include <iostream>
 
 struct AVLNode {
-  int key; // siteId
+  int key;
   SiteData data;
   int height;
   AVLNode *left;
@@ -14,7 +14,7 @@ struct AVLNode {
       : key(d.siteId), data(d), height(1), left(nullptr), right(nullptr) {}
 };
 
-// balanced avl tree to store discovered sites
+
 class AVLTree {
 private:
   AVLNode *root;
@@ -34,7 +34,7 @@ private:
     }
   }
 
-  // right rotation for LL case
+
   AVLNode *rotateRight(AVLNode *y) {
     AVLNode *x = y->left;
     AVLNode *t2 = x->right;
@@ -45,7 +45,7 @@ private:
     return x;
   }
 
-  // left rotation for RR case
+
   AVLNode *rotateLeft(AVLNode *x) {
     AVLNode *y = x->right;
     AVLNode *t2 = y->left;
@@ -69,7 +69,7 @@ private:
     } else if (data.siteId > node->key) {
       node->right = insertNode(node->right, data);
     } else {
-      // duplicate key updates data
+
       node->data = data;
       return node;
     }
@@ -77,7 +77,7 @@ private:
     updateHeight(node);
     int balance = getBalanceFactor(node);
 
-    // balance tree if skewed
+
     if (balance > 1 && data.siteId < node->left->key) {
       return rotateRight(node);
     }
@@ -154,4 +154,4 @@ public:
   }
 };
 
-#endif // AVL_TREE_HPP
+#endif

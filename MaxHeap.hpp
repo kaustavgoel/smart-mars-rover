@@ -4,7 +4,7 @@
 #include "Types.hpp"
 #include <iostream>
 
-// custom max-heap to prioritize science sites by value
+
 class MaxHeap {
 private:
     SiteData* heapArray;
@@ -60,7 +60,7 @@ public:
         delete[] heapArray;
     }
 
-    // copy constructor
+
     MaxHeap(const MaxHeap& other) : heapCapacity(other.heapCapacity), heapSize(other.heapSize) {
         heapArray = new SiteData[heapCapacity];
         for (int i = 0; i < heapSize; ++i) {
@@ -68,7 +68,7 @@ public:
         }
     }
 
-    // assignment operator
+
     MaxHeap& operator=(const MaxHeap& other) {
         if (this != &other) {
             delete[] heapArray;
@@ -135,4 +135,4 @@ public:
     }
 };
 
-#endif // MAX_HEAP_HPP
+#endif

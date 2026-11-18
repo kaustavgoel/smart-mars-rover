@@ -5,7 +5,7 @@
 #include <iostream>
 #include <cmath>
 
-// simple vector class for linear algebra without external libraries
+
 class MathVector {
 public:
     float* data;
@@ -78,7 +78,7 @@ public:
     }
 };
 
-// simple matrix class for network weights
+
 class MathMatrix {
 public:
     size_t rows;
@@ -128,7 +128,7 @@ public:
     }
 
     void randomize(float minVal = -0.5f, float maxVal = 0.5f, unsigned int seed = 42) {
-        // simple lcg generator for reproducibility
+
         unsigned long s = seed;
         for (size_t i = 0; i < rows; ++i) {
             for (size_t j = 0; j < cols; ++j) {
@@ -160,13 +160,13 @@ struct ExcavationPrediction {
     CustomVector<float> hiddenActivations;
 };
 
-// 3-layer neural network (4 -> 6 -> 3) predicting drill offset and depth
+
 class ExcavationNeuralNetwork {
 private:
-    MathMatrix W1; // hidden weights (6x4)
-    MathVector b1; // hidden biases (6)
-    MathMatrix W2; // output weights (3x6)
-    MathVector b2; // output biases (3)
+    MathMatrix W1;
+    MathVector b1;
+    MathMatrix W2;
+    MathVector b2;
 
     static float sigmoid(float x) {
         return 1.0f / (1.0f + std::exp(-clampValue(x, -20.0f, 20.0f)));
@@ -189,14 +189,14 @@ public:
     }
 
     ExcavationPrediction forward(const MathVector& inputs) const {
-        // hidden layer
+
         MathVector z1 = W1.multiply(inputs) + b1;
         MathVector a1(6);
         for (size_t i = 0; i < 6; ++i) {
             a1[i] = tanhAct(z1[i]);
         }
 
-        // output layer
+
         MathVector z2 = W2.multiply(a1) + b2;
         MathVector a2(3);
         for (size_t i = 0; i < 3; ++i) {
@@ -236,7 +236,7 @@ public:
             delta1[j] = sum * tanhDerivative(a1[j]);
         }
 
-        // update output weights
+
         for (size_t i = 0; i < 3; ++i) {
             b2[i] -= lr * delta2[i];
             for (size_t j = 0; j < 6; ++j) {
@@ -244,7 +244,7 @@ public:
             }
         }
 
-        // update hidden weights
+
         for (size_t j = 0; j < 6; ++j) {
             b1[j] -= lr * delta1[j];
             for (size_t k = 0; k < 4; ++k) {
@@ -278,4 +278,4 @@ public:
     }
 };
 
-#endif // NEURAL_NETWORK_HPP
+#endif

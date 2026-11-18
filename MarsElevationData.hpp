@@ -4,7 +4,7 @@
 #include "Types.hpp"
 #include <iostream>
 
-// manages mars elevation data and terrain classification
+
 class MarsTerrainGrid {
 private:
     float elevationMatrix[TOTAL_ROWS][TOTAL_COLUMNS];
@@ -31,7 +31,7 @@ public:
         preprocessTerrain();
     }
 
-    // jezero crater orbital dem elevation values
+
     void loadRealMarsDatasetTile() {
         static const float baseDEM[TOTAL_ROWS][TOTAL_COLUMNS] = {
             {-2440, -2438, -2435, -2432, -2430, -2425, -2420, -2415, -2412, -2410, -2408, -2405, -2402, -2400, -2395, -2380, -2350, -2300, -2250, -2200, -2180, -2170, -2160, -2150, -2160, -2180, -2220, -2300, -2380, -2430},
@@ -68,7 +68,7 @@ public:
         }
     }
 
-    // compute slope, roughness and assign terrain classification
+
     void preprocessTerrain() {
         const int dr[4] = {-1, 1, 0, 0};
         const int dc[4] = {0, 0, -1, 1};
@@ -100,12 +100,12 @@ public:
                 float slope = slopeMatrix[r][c];
                 float roughness = roughnessMatrix[r][c];
 
-                // valley pass
+
                 bool isValleyPass = ((r >= 2 && r <= 4 && c >= 12 && c <= 20) ||
                                      (r >= 9 && r <= 11 && c >= 12 && c <= 20) ||
                                      (r >= 16 && r <= 17 && c >= 12 && c <= 20));
                 bool isStartArea = (r <= 1 && c <= 1);
-                
+
                 if (!isStartArea && !isValleyPass && (slope >= 42.0f || roughness >= 38.0f)) {
                     terrainGrid[r][c] = TerrainType::OBSTACLE;
                     traversalCostGrid[r][c] = 9999.0f;
@@ -122,11 +122,11 @@ public:
             }
         }
 
-        // sample crater formations
+
         addMartianCrater(6, 17, 2);
         addMartianCrater(14, 8, 2);
 
-        // start point is always clear
+
         terrainGrid[0][0] = TerrainType::PLAINS;
         terrainGrid[0][1] = TerrainType::PLAINS;
         terrainGrid[1][0] = TerrainType::PLAINS;
@@ -221,4 +221,4 @@ public:
     }
 };
 
-#endif // MARS_ELEVATION_DATA_HPP
+#endif

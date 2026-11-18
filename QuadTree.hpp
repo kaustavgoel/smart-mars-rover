@@ -7,7 +7,7 @@
 
 struct SpatialItem {
     Point2D coord;
-    std::string type; // "OBSTACLE", "SITE"
+    std::string type;
     int id;
 
     SpatialItem() : coord(0, 0), type(""), id(0) {}
@@ -36,7 +36,7 @@ struct BoundingBox {
     }
 };
 
-// single node in quadtree holding up to 4 items before splitting
+
 class QuadTreeNode {
 public:
     BoundingBox boundary;
@@ -74,7 +74,7 @@ public:
 
         isDivided = true;
 
-        // redistribute current items to children
+
         for (int i = 0; i < itemCount; ++i) {
             insert(items[i]);
         }
@@ -130,7 +130,7 @@ public:
     }
 };
 
-// 2d quadtree for fast spatial range and proximity queries
+
 class QuadTree {
 private:
     QuadTreeNode* root;
@@ -213,4 +213,4 @@ public:
     int getItemCount() const { return totalItemsIndexed; }
 };
 
-#endif // QUADTREE_HPP
+#endif

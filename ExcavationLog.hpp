@@ -36,7 +36,7 @@ struct ExcavationRecord {
           missionTimeSeconds(time), prev(nullptr), next(nullptr) {}
 };
 
-// custom doubly linked list logging every core drilling operation
+
 class ExcavationLog {
 private:
     ExcavationRecord* head;
@@ -102,4 +102,4 @@ public:
     }
 };
 
-#endif // EXCAVATION_LOG_HPP
+#endif
